@@ -163,22 +163,17 @@ void processMultiSequence( int inputSeq[], int seqlength, int nStrands,
   int i, j;
   int nNick = 0;
   int done;
-  int *tmpSeq;
-
-
-  tmpSeq = (int*) malloc( (seqlength+nStrands)*sizeof( int) );
-  memcpy( tmpSeq, inputSeq, (seqlength+nStrands)*sizeof( int));
 
   j = 0;
   for( i = 0; i < seqlength; i++) {
     done = FALSE;
     while( !done) {
-      if( tmpSeq[j] == BASE_A || tmpSeq[j] == BASE_C || tmpSeq[j] == BASE_G ||
-        tmpSeq[j] == BASE_T || tmpSeq[j] == BASE_U) {
+      if( inputSeq[j] == BASE_A || inputSeq[j] == BASE_C || inputSeq[j] == BASE_G ||
+        inputSeq[j] == BASE_T || inputSeq[j] == BASE_U) {
         done = TRUE;
-        seq[i] = tmpSeq[j];
+        seq[i] = inputSeq[j];
       }
-      else if( tmpSeq[j] == STRAND_PLUS) {
+      else if( inputSeq[j] == STRAND_PLUS) {
         nicks[nNick++] = i-1;
       }
       j++;
@@ -191,7 +186,6 @@ void processMultiSequence( int inputSeq[], int seqlength, int nStrands,
     }
   }
   seq[ seqlength] = -1;
-  free(tmpSeq);
 }
 
 
