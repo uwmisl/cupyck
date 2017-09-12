@@ -215,12 +215,26 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int inputSeq[], int seqlength,
     }
 
     free( etaN);
-
     *pf = returnValue;
   }
 }
 /* ****** */
+//void pfuncInitialize(DBL_TYPE temp_lo, DBL_TYPE temp_hi, DBL_TYPE temp_step,
+extern "C" void pfuncInitialize(DBL_TYPE temp_k,
+    DBL_TYPE sodium_conc, DBL_TYPE magnesium_conc,
+    int long_helix, int dangletype, int dnarnacount) {
 
+  SODIUM_CONC = sodium_conc;
+  MAGNESIUM_CONC = magnesium_conc;
+  USE_LONG_HELIX_FOR_SALT_CORRECTION = long_helix;
+  DANGLETYPE = dangletype;
+  DNARNACOUNT = dnarnacount;
+  TEMP_K = temp_k;
+
+  energy_model_t energies;
+  LoadEnergies(&energies, temp_k);
+  cudaMemcpyToSymbol(ENERGIES, &energies, sizeof(energy_model_t));
+}
 
 // This is the main function for computing partition functions.
 DBL_TYPE pfuncFullWithSym(int inputSeq[], int permSymmetry) {
@@ -232,7 +246,7 @@ DBL_TYPE pfuncFullWithSym(int inputSeq[], int permSymmetry) {
   cudaMallocManaged(&iseq, sizeof(int) * (seqlength + 1));
   memcpy(iseq, inputSeq, sizeof(int) * (seqlength + 1));
 
-  int nblocks = 16;
+  int nblocks = 1;
   int nperblock = 256;
   int nthreads = nblocks * nperblock;
 

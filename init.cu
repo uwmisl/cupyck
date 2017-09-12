@@ -326,6 +326,10 @@ void LoadEnergies(energy_model_t *em, DBL_TYPE temp_k) {
   static char parameterFileName[300] = "\0";
   
 
+  em->temp_k = temp_k;
+  em->dnarnacount = DNARNACOUNT;
+  em->dangletype = DANGLETYPE;
+
   if( DNARNACOUNT == COUNT) {
     setParametersToZero(em);
     return;
