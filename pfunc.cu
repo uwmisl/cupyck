@@ -45,6 +45,38 @@
 #include "pfuncUtilsHeader.h"
 #include "DNAExternals.h"
 
+int readMultiInput(char *inputFile, char ***seqs) {
+  FILE *fin = fopen(inputFile, "r");
+  if (!fin) {
+    fprintf(stderr, "unable to open file\n");
+    exit(1);
+  }
+  int nlines = 0;
+  int rc = 0;
+  while (rc != EOF) {
+    rc = fgetc(fin);
+    if (rc == '\n') {
+      ++nlines;
+    }
+  }
+
+  *seqs = (char**)malloc(nlines * sizeof(char*));
+  rewind(fin);
+
+  size_t len = MAXSEQLENGTH;
+  for(int i = 0; i < nlines; ++i) {
+    (*seqs)[i] = (char*)malloc(MAXSEQLENGTH);
+    int nc = getline(&((*seqs)[i]), &len, fin);
+    if (len > MAXSEQLENGTH) {
+      fprintf(stderr, "seqs longer than MAXSEQLENGTH");
+      exit(1);
+    }
+    (*seqs)[i][nc-1] = '\0';
+  }
+  fclose(fin);
+  return nlines;
+}
+
 /* ************************************************ */
 
 int main( int argc, char *argv[] ) {
@@ -53,8 +85,7 @@ int main( int argc, char *argv[] ) {
   int seqNum[ MAXSEQLENGTH+1];
   
   DBL_TYPE pf;
-  
-  int complexity;
+
   int vs;
   int tmpLength;
   char inputFile[ MAXLINE];
@@ -63,6 +94,14 @@ int main( int argc, char *argv[] ) {
   strcpy( inputFile, "");
   
   inputFileSpecified = ReadCommandLineNPK( argc, argv, inputFile);
+  
+  energy_model_t energy_model;
+  energy_model.temp_k = TEMP_K;
+  energy_model.dangletype = DANGLETYPE;
+  energy_model.dnarnacount = DNARNACOUNT;
+  LoadEnergies(&energy_model);
+
+  cudaMemcpyToSymbol(ENERGIES, &energy_model, sizeof(energy_model_t));
 
   if(NupackShowHelp) {
     printf("Usage: pfunc [OPTIONS] PREFIX\n");
@@ -74,7 +113,6 @@ int main( int argc, char *argv[] ) {
   }
 
   header( argc, argv, "pfunc","screen");
-
   if( !inputFileSpecified || 
       !ReadInputFile( inputFile, seq, &vs, NULL, NULL, NULL) ) {
        if (inputFileSpecified == 0) getUserInput( seq, &vs, NULL, NULL);
@@ -83,31 +121,17 @@ int main( int argc, char *argv[] ) {
   
   printInputs( argc, argv, seq, vs, NULL, NULL,"screen");
   
-  if( !DO_PSEUDOKNOTS ) {
-    complexity = 3;
-  }
-  else {
-    complexity = 5;
-  }
-  
   //calculate partition function, without pairs info
   tmpLength = strlen( seq);
   convertSeq(seq, seqNum, tmpLength);
 
-  pf = pfuncFullWithSym(seqNum, complexity, DNARNACOUNT, DANGLETYPE, 
-			TEMP_K - ZERO_C_IN_KELVIN, 0, vs, SODIUM_CONC,
-			MAGNESIUM_CONC, USE_LONG_HELIX_FOR_SALT_CORRECTION);
+  pf = pfuncFullWithSym(seqNum, vs);
 
   printf("%s\n%s Free energy (kcal/mol) and partition function:\n",
 	 COMMENT_STRING,COMMENT_STRING);
 
-  if(!NUPACK_VALIDATE) {
-    printf("%.8Le\n",-1*(kB*TEMP_K)*logl( (long double) pf));
-    printf( "%12.14Le\n", (long double) pf); 
-  } else {
-    printf("%.14Le\n",-1*(kB*TEMP_K)*logl( (long double) pf));
-    printf( "%.14Le\n", (long double) pf); 
-  }
+  printf("%.8Le\n",-1*(kB*TEMP_K)*logl( (long double) pf));
+  printf( "%12.14Le\n", (long double) pf); 
   
   return 0;
 }

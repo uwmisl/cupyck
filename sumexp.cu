@@ -16,10 +16,8 @@
 #include<string.h>
 
 #include "pfuncUtilsHeader.h" //contains functions and structures
-#include "DNAExternals.h"
-#include "hash.h"
-extern unsigned int seqHash;
 /* ******************************************* */
+DEV
 DBL_TYPE ExplHairpin( int i, int j, int seq[], int seqlength, int **etaN) {
   //this version disallows nicks here
 
@@ -44,10 +42,11 @@ DBL_TYPE ExplHairpin( int i, int j, int seq[], int seqlength, int **etaN) {
     return 0.0;
   }
 
-  return EXP_FUNC( -energy/( kB*TEMP_K) );
+  return EXP_FUNC( -energy/( kB*ENERGIES.temp_k) );
 }
 
 /* ********************* */
+DEV
 DBL_TYPE SumExpMultiloops( int i, int j, int seq[], 
                           DBL_TYPE *Qms, DBL_TYPE *Qm, int seqlength,
                           int **etaN){
@@ -67,12 +66,12 @@ DBL_TYPE SumExpMultiloops( int i, int j, int seq[],
       if( etaN[EtaNIndex_same( d-0.5, seqlength)][0] == 0 ) {
         
         if( seq[i] != BASE_C  && seq[j] != BASE_C) {
-          bp_penalty += AT_PENALTY;
+          bp_penalty += ENERGIES.at_penalty;
         }
 
-        extraTerms = EXP_FUNC( -( ALPHA_1 + ALPHA_2 + bp_penalty) 
-                          / (kB*TEMP_K) );
-        if( DNARNACOUNT == COUNT) 
+        extraTerms = EXP_FUNC( -( ENERGIES.alpha_1 + ENERGIES.alpha_2 + bp_penalty) 
+                          / (kB*ENERGIES.temp_k) );
+        if( ENERGIES.dnarnacount == COUNT) 
           extraTerms = 1;
 
         sum_exp += Qm[ pf_index( i+1, d-1, seqlength)] *
@@ -86,7 +85,7 @@ DBL_TYPE SumExpMultiloops( int i, int j, int seq[],
 }
 
 /* *********************************************** */
-
+DEV
 DBL_TYPE SumExpExteriorLoop( int i,int j, int seq[], int seqlength, 
                             DBL_TYPE *Q, int *nicks, int **etaN) {
 
@@ -115,7 +114,7 @@ DBL_TYPE SumExpExteriorLoop( int i,int j, int seq[], int seqlength,
     bp_penalty = 0.0;
 
     if( seq[i] != BASE_C  && seq[j] != BASE_C) {
-      bp_penalty = AT_PENALTY;
+      bp_penalty = ENERGIES.at_penalty;
     }
 
     nNicks = etaN[ index_ij][0];
@@ -127,9 +126,9 @@ DBL_TYPE SumExpExteriorLoop( int i,int j, int seq[], int seqlength,
       multiNick = nicks[ leftIndex + n];
 
       extraTerms = 
-        EXP_FUNC( -1*(bp_penalty)/(kB*TEMP_K));
+        EXP_FUNC( -1*(bp_penalty)/(kB*ENERGIES.temp_k));
 
-      if( DNARNACOUNT == COUNT) 
+      if( ENERGIES.dnarnacount == COUNT) 
         if( extraTerms != 0) extraTerms = 1;
 
       if( (iNicked == FALSE && jNicked == FALSE) ||
@@ -148,7 +147,7 @@ DBL_TYPE SumExpExteriorLoop( int i,int j, int seq[], int seqlength,
 }
 
 /* *********************************************** */
-
+DEV
 void fastILoops( int i, int j, int L, int seqlength, int seq[],
                  int **etaN, DBL_TYPE *Qb, DBL_TYPE *Qx, DBL_TYPE *Qx_2) {
 
@@ -169,8 +168,8 @@ void fastILoops( int i, int j, int L, int seqlength, int seq[],
     for( size = 8; size <= L - 4; size++) {
       
       extraTerms = EXP_FUNC( -InteriorMM( seq[i], seq[j], seq[i+1], 
-                                     seq[j-1])/(kB*TEMP_K));
-      if( DNARNACOUNT == COUNT) 
+                                     seq[j-1])/(kB*ENERGIES.temp_k));
+      if( ENERGIES.dnarnacount == COUNT) 
         extraTerms = 1;
       
       Qb[ pf_ij] += 
@@ -195,7 +194,7 @@ void fastILoops( int i, int j, int L, int seqlength, int seq[],
 /* *************** */
 
 /* Qs, Qms  Recursion */
-
+DEV
 void MakeQs_Qms( int i, int j, int seq[], int seqlength, 
                 DBL_TYPE *Qs, DBL_TYPE *Qms, DBL_TYPE *Qb,
                 int *nicks, int **etaN) {
@@ -224,14 +223,14 @@ void MakeQs_Qms( int i, int j, int seq[], int seqlength,
        ( seq[i]) + ( seq[d]) == 5) {
          
          if( seq[i] != BASE_C && seq[d] != BASE_C) {
-           bp_penalty = AT_PENALTY;
+           bp_penalty = ENERGIES.at_penalty;
          }
 
          extraTerms = EXP_FUNC( -(NickDangle( d+1,j,nicks, etaN,
                               FALSE, seq,seqlength) + 
-                              bp_penalty)/(kB*TEMP_K) );
+                              bp_penalty)/(kB*ENERGIES.temp_k) );
 
-         if( DNARNACOUNT == COUNT) 
+         if( ENERGIES.dnarnacount == COUNT) 
            extraTerms = 1;
 
          Qs[ pf_ij] += Qb[ pf_index( i, d, seqlength) ] * 
@@ -240,9 +239,10 @@ void MakeQs_Qms( int i, int j, int seq[], int seqlength,
          // ******************** 
 
          extraTerms =  ExplDangle( d+1, j, seq, seqlength) * 
-           EXP_FUNC( -(bp_penalty + ALPHA_2 + ALPHA_3*(j-d))/(kB*TEMP_K) );
+           EXP_FUNC( -(bp_penalty + ENERGIES.alpha_2 + 
+                 ENERGIES.alpha_3*(j-d))/(kB*ENERGIES.temp_k) );
 
-         if( DNARNACOUNT == COUNT) 
+         if( ENERGIES.dnarnacount == COUNT) 
            extraTerms = 1;
          Qms[ pf_ij] += Qb[ pf_index( i, d, seqlength) ] * 
            extraTerms;
@@ -253,6 +253,7 @@ void MakeQs_Qms( int i, int j, int seq[], int seqlength,
 
 /* ******************************* */
 /* Q, Qm Recursions */
+DEV
 void MakeQ_Qm_N3( int i, int j, int seq[], int seqlength, 
                  DBL_TYPE *Q, DBL_TYPE *Qs, 
                  DBL_TYPE *Qms, DBL_TYPE *Qm,
@@ -269,11 +270,11 @@ void MakeQ_Qm_N3( int i, int j, int seq[], int seqlength,
       Q[ pf_ij] += Q[ pf_index(i, d-1, seqlength)] *
         Qs[ pf_index( d, j, seqlength)];
 
-      if( DNARNACOUNT == COUNT) 
+      if( ENERGIES.dnarnacount == COUNT) 
         extraTerms = 1;
       else 
         extraTerms = ExplDangle( i, d-1, seq, seqlength) *
-          EXP_FUNC( -(ALPHA_3)*(d-i)/(kB*TEMP_K));
+          EXP_FUNC( -(ENERGIES.alpha_3)*(d-i)/(kB*ENERGIES.temp_k));
 
       if( etaN[ EtaNIndex_same( d-0.5, seqlength)][0] == 0) { 
         //otherwise Qm not possible
@@ -297,7 +298,7 @@ void MakeQ_Qm_N3( int i, int j, int seq[], int seqlength,
 /* Functions in Q recursion */
 // must be calculated after Qb, Qpk of same length
 
-void makeNewQx( int i, int j, int seq[], int seqlength, 
+DEV void makeNewQx( int i, int j, int seq[], int seqlength, 
                int **etaN, DBL_TYPE Qb[], DBL_TYPE Qx[]) {
                  
   /*Determine the new entries of Qx(i,j,size) that are not extended 
@@ -327,11 +328,11 @@ void makeNewQx( int i, int j, int seq[], int seqlength,
         /*Exclude the i-j stacking energy here, just in case i-j 
         don't pair */
 
-        if( DNARNACOUNT == COUNT) 
+        if( ENERGIES.dnarnacount == COUNT) 
           energy = 0;
 
         Qx[ fbixIndex( j-i, i, size, seqlength) ] += 
-          EXP_FUNC(-energy/(kB*TEMP_K))*Qb[ pf_index(d, e, seqlength)];
+          EXP_FUNC(-energy/(kB*ENERGIES.temp_k))*Qb[ pf_index(d, e, seqlength)];
     }
   }
 
@@ -350,16 +351,17 @@ void makeNewQx( int i, int j, int seq[], int seqlength,
         /*Exclude the i-j stacking energy here, just in case i-j 
         don't pair */
 
-        if( DNARNACOUNT == COUNT) 
+        if( ENERGIES.dnarnacount == COUNT) 
           energy = 0.0;
 
         Qx[ fbixIndex( j-i, i, size, seqlength)] +=
-          EXP_FUNC(-energy/(kB*TEMP_K))*Qb[ pf_index(d, e, seqlength)];
+          EXP_FUNC(-energy/(kB*ENERGIES.temp_k))*Qb[ pf_index(d, e, seqlength)];
     }
   }
 }
 
 /* ************************** */
+DEV
 void extendOldQx( int i, int j, int seqlength, DBL_TYPE Qx[], DBL_TYPE Qx_2[]) {
   /* Extends all entries of Qx */
   
@@ -369,32 +371,33 @@ void extendOldQx( int i, int j, int seqlength, DBL_TYPE Qx[], DBL_TYPE Qx_2[]) {
   
   for( size = 8; size <= (j - i + 1) - 4; size++) {
     if( size <= 30) {
-      oldSizeEnergy = loop37[ size - 1];
+      oldSizeEnergy = ENERGIES.loop37[ size - 1];
     }
     else {
-      oldSizeEnergy = loop37[ 30 - 1];
+      oldSizeEnergy = ENERGIES.loop37[ 30 - 1];
       oldSizeEnergy += sizeLog(size);  //1.75*kB*TEMP_K*log( size/30.0); 
     }
 
     if( size + 2 <= 30) {
-      newSizeEnergy = loop37[ size+2 - 1];
+      newSizeEnergy = ENERGIES.loop37[ size+2 - 1];
     }
     else {
-      newSizeEnergy = loop37[ 30 - 1];
+      newSizeEnergy = ENERGIES.loop37[ 30 - 1];
       newSizeEnergy += sizeLog (size+2); //1.75*kB*TEMP_K*log( (size+2)/30.0); 
     }
 
-    if( DNARNACOUNT == COUNT) 
+    if( ENERGIES.dnarnacount == COUNT) 
       newSizeEnergy = oldSizeEnergy;
     
     Qx_2[ fbixIndex( j-i+2, i-1, size+2, seqlength)] = 
       Qx[ fbixIndex( j-i, i, size, seqlength)] * 
-      EXP_FUNC( -(newSizeEnergy - oldSizeEnergy)/(kB*TEMP_K));
+      EXP_FUNC( -(newSizeEnergy - oldSizeEnergy)/(kB*ENERGIES.temp_k));
   }
 }
 
 
 /* ************************ */
+DEV
 DBL_TYPE SumExpInextensibleIL( int i, int j, int seq[], int seqlength, 
                               DBL_TYPE Qb[], int **etaN) {
   /* This finds the minimum energy IL that has a special energy 
@@ -420,7 +423,7 @@ DBL_TYPE SumExpInextensibleIL( int i, int j, int seq[], int seqlength,
 
            energy = InteriorEnergy( i, j, d, e, seq);
 
-           sumexp += EXP_FUNC( -energy/(kB*TEMP_K)) *
+           sumexp += EXP_FUNC( -energy/(kB*ENERGIES.temp_k)) *
              Qb[ pf_index( d, e, seqlength)];
       }
     }
@@ -439,7 +442,7 @@ DBL_TYPE SumExpInextensibleIL( int i, int j, int seq[], int seqlength,
 
            energy = InteriorEnergy( i, j, d, e, seq);
 
-           sumexp += EXP_FUNC( -energy/(kB*TEMP_K)) *
+           sumexp += EXP_FUNC( -energy/(kB*ENERGIES.temp_k)) *
              Qb[ pf_index( d, e, seqlength)]; 
       }
     }
@@ -457,7 +460,7 @@ DBL_TYPE SumExpInextensibleIL( int i, int j, int seq[], int seqlength,
 
            energy = InteriorEnergy( i, j, d, e, seq);
 
-           sumexp += EXP_FUNC( -energy/(kB*TEMP_K)) *
+           sumexp += EXP_FUNC( -energy/(kB*ENERGIES.temp_k)) *
              Qb[ pf_index( d, e, seqlength)];
       }
     }
@@ -468,8 +471,9 @@ DBL_TYPE SumExpInextensibleIL( int i, int j, int seq[], int seqlength,
 
 
 /* ******************** */
+DEV
 DBL_TYPE SumExpInterior_Multi( int i, int j, int seq[], int seqlength, 
-                              DBL_TYPE Qm[], DBL_TYPE Qb[] ){
+                              DBL_TYPE Qm[], DBL_TYPE Qb[], int **etaN ){
   // This finds all possible internal loops (no pseudoknots)
   // closed on the "outside" by bases i and j, as well as all 
   // multiloops.  Ignores nicks
@@ -485,30 +489,35 @@ DBL_TYPE SumExpInterior_Multi( int i, int j, int seq[], int seqlength,
     for( e = d + 4; e <= j - 1; e++) {
       //  S2 = e-d+1;
       //  S3 = d-i-1;
-      
-      if( CanPair( seq[d], seq[e]) == TRUE) {
-        bp_penalty = 0.0;
+    
+      if (etaN[EtaNIndex(i + 0.5, d - 0.5, seqlength)][0] == 0 &&
+         etaN[EtaNIndex(e + 0.5, j - 0.5, seqlength)][0] == 0) {
+        if( CanPair( seq[d], seq[e]) == TRUE) {
+          bp_penalty = 0.0;
 
-        sum_expl += 
-          ExplInternal( i, j, d, e, seq) *
-          Qb[ pf_index( d, e, seqlength) ];
+          sum_expl += 
+            ExplInternal( i, j, d, e, seq) *
+            Qb[ pf_index( d, e, seqlength) ];
 
-        if( seq[d] != BASE_C && seq[e] != BASE_C) {
-          bp_penalty = AT_PENALTY;
-        }
-        if( seq[i] != BASE_C && seq[j] != BASE_C) {
-          bp_penalty += AT_PENALTY;
-        }
+          if( seq[d] != BASE_C && seq[e] != BASE_C) {
+            bp_penalty = ENERGIES.at_penalty;
+          }
+          if( seq[i] != BASE_C && seq[j] != BASE_C) {
+            bp_penalty += ENERGIES.at_penalty;
+          }
 
-        if( d>= i+6 && ( seq[d]) + ( seq[e]) == 5 &&
-           ( seq[i]) + ( seq[j]) == 5) {
+          if( d>= i+6 && ( seq[d]) + ( seq[e]) == 5 &&
+             ( seq[i]) + ( seq[j]) == 5) {
 
-             sum_expl += 
-               Qm[ pf_index(i+1, d-1, seqlength)] *
-               Qb[ pf_index( d, e, seqlength)] *
-               EXP_FUNC( -(ALPHA_1 + 2*ALPHA_2 + ALPHA_3*(j-e-1) + bp_penalty)/
-                    (kB*TEMP_K) )*
-               ExplDangle( e+1, j-1, seq, seqlength);
+               sum_expl += 
+                 Qm[ pf_index(i+1, d-1, seqlength)] *
+                 Qb[ pf_index( d, e, seqlength)] *
+                 EXP_FUNC( 
+                     -(ENERGIES.alpha_1 + 2*ENERGIES.alpha_2 +
+                       ENERGIES.alpha_3*(j-e-1) + bp_penalty) /
+                      (kB*ENERGIES.temp_k) )*
+                 ExplDangle( e+1, j-1, seq, seqlength);
+          }
         }
       }
     }
@@ -517,7 +526,7 @@ DBL_TYPE SumExpInterior_Multi( int i, int j, int seq[], int seqlength,
 }
 
 /* *********************************************** */
-#ifdef N4
+DEV
 void MakeQ_Qm_N4( int i, int j, int seq[], int seqlength, 
                  DBL_TYPE *Q, DBL_TYPE *Qm, DBL_TYPE *Qb ){
 
@@ -539,18 +548,18 @@ void MakeQ_Qm_N4( int i, int j, int seq[], int seqlength,
         ( seq[d]) + ( seq[e]) == 5 ) {
         bp_penalty = 0;
         if( seq[d] != BASE_C && seq[e] != BASE_C) {
-          bp_penalty = AT_PENALTY;
+          bp_penalty = ENERGIES.at_penalty;
         }
 
         Q[ pf_ij] += //scale(S1-S2-S3)*
           Q[ pf_index(i, d-1, seqlength)] *
           Qb[ pf_index( d, e, seqlength) ] *
-          EXP_FUNC( -bp_penalty/(kB*TEMP_K) ) *
+          EXP_FUNC( -bp_penalty/(kB*ENERGIES.temp_k) ) *
           ExplDangle( e+1, j, seq, seqlength); 
 
         Qm[ pf_ij] += //scale( S1-S2) *
-          EXP_FUNC( -(ALPHA_2 + ALPHA_3*(d-i + j-e) + bp_penalty)/
-               (kB*TEMP_K) )*
+          EXP_FUNC( -(ENERGIES.alpha_2 + ENERGIES.alpha_3*(d-i + j-e) + bp_penalty)/
+               (kB*ENERGIES.temp_k) )*
           Qb[ pf_index( d, e, seqlength)] *
           ExplDangle( e+1, j, seq, seqlength) *
           ExplDangle( i, d-1, seq, seqlength);
@@ -560,12 +569,11 @@ void MakeQ_Qm_N4( int i, int j, int seq[], int seqlength,
             //scale( S1 - S2 - S3)*
             Qm[ pf_index(i, d-1, seqlength)] *
             Qb[ pf_index( d, e, seqlength)] *
-            EXP_FUNC( -(ALPHA_2 + ALPHA_3*(j-e) + bp_penalty)/
-                 (kB*TEMP_K) )*
+            EXP_FUNC( -(ENERGIES.alpha_2 + ENERGIES.alpha_3*(j-e) + bp_penalty)/
+                 (kB*ENERGIES.temp_k) )*
             ExplDangle( e+1, j, seq, seqlength);
         }
       }
     }
   }
 }
-#endif

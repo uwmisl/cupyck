@@ -101,50 +101,6 @@ double str2double (char *str) {
 /*                          BEGIN ARRAY PROCESSING FUNCTIONS                        */
 /* ******************************************************************************** */
 
-/* ******************************************************************************** */
-double min(double *ar, int len) {
-  /* 
-     Returns the minimum entry in an array of doubles of length len
-  */
-
-  int i; // Counter
-  double MinEntry; // The entry we'll return
-
-  MinEntry = ar[0];
-
-  for (i = 1; i < len; i++) {
-    if (ar[i] < MinEntry) {
-      MinEntry = ar[i];
-    }
-  }
-
-  return MinEntry;
-
-}
-/* ******************************************************************************** */
-
-
-/* ******************************************************************************** */
-double max(double *ar, int len) {
-  /*
-    Returns the maximum entry in an array of doubles of length len.
-  */
-
-  double MaxEntry; // The max entry
-  int i; // Counter
-
-  MaxEntry = ar[0];
-  for (i = 0; i < len; i++) {
-    if (ar[i] > MaxEntry) {
-      MaxEntry = ar[i];
-    }
-  }
-
-  return MaxEntry;
-
-}
-/* ******************************************************************************** */
-
 
 /* ******************************************************************************** */
 int maxint(int *ar, int len) {
@@ -316,18 +272,6 @@ double didot(double *v1, int *v2, int len) {
   }
 
   return dotprod;
-
-}
-/* ******************************************************************************** */
-
-
-/* ******************************************************************************** */
-double norm(double *ar, int len) {
-  /*
-    Computes the norm of an array of double of length len.
-  */
-
-  return sqrt(dot(ar,ar,len));
 
 }
 /* ******************************************************************************** */

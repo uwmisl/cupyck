@@ -109,8 +109,6 @@ int ReadCommandLineNPK(int nargs, char **args, char *inputFile) {
   MAGNESIUM_CONC = 0.0;
   USE_LONG_HELIX_FOR_SALT_CORRECTION = 0;
   NUPACK_VALIDATE=0;
-  EXTERN_QB = NULL;
-  EXTERN_Q = NULL;
 
   // Get the option flags
   while (1) {

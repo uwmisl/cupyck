@@ -13,16 +13,14 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
+#define DEV __device__
+#define GLB __global__
 
 #include "pfuncUtilsConstants.h"
 #include "runtime_constants.h"
 #include "physical_constants.h"
-#include "../../shared/utilsHeader.h"
+#include "utilsHeader.h"
+#include "DNAExternals.h"
 
 /* ************************ */
 // Macros
@@ -113,15 +111,11 @@ DBL_TYPE pfuncFull( int inputSeq[], int complexity, int naType, int dangles,
 
 //pfuncFullWithSym is the Same as pfuncFull, but divides
 //the result by permSym to account for symmetries
-DBL_TYPE pfuncFullWithSym( int inputSeq[], int complexity, int naType,
-                           int dangles, DBL_TYPE temperature, int calcPairs, int permSymmetry,
-                           DBL_TYPE sodiumconc, DBL_TYPE magnesiumconc, int uselongsalt);
+DBL_TYPE pfuncFullWithSym(int inputSeq[],  int permSymmetry);
 
-DBL_TYPE pfuncFullWithSymHelper( int inputSeq[], int seqlength, int nStrands,
-                                 int complexity, int naType,
-                                 int dangles, DBL_TYPE temperature, int calcPairs,
-                                 int permSymmetry, DBL_TYPE sodiumconc,
-                                 DBL_TYPE magnesiumconc, int uselongsalt);
+GLB
+void pfuncFullWithSymHelper(DBL_TYPE *pf, int inputSeq[], int seqlength, int nStrands,
+                                 int permSymmetry);
 
 
 /* pfunc
@@ -263,17 +257,17 @@ int getSequenceLengthInt( int seq[], int *nStrands);
 
 /* processMultiSeqence() copies input sequence (containing strandPLUS members) to seq, but without the
    strandPLUS members.  The location of the strand breaks, strandPLUS, are stored in the nicks array */
-void processMultiSequence( int inputSeq[], int seqlength, int nStrands,
+DEV void processMultiSequence( int inputSeq[], int seqlength, int nStrands,
                            int seq[], int nicks[]);
 
 //Allocates Q and sets the values to zero.
-void InitLDoublesMatrix( DBL_TYPE **Q, int size, char name[]);
+DEV void InitLDoublesMatrix( DBL_TYPE **Q, int size, char name[]);
 
 //Sets Q to all zero
 void ClearLDoublesMatrix(DBL_TYPE **Q, int size, char name[]);
 
 //Memory management for "fast" interior loops subroutine
-void manageQx( DBL_TYPE **Qx, DBL_TYPE **Qx_1,
+DEV void manageQx( DBL_TYPE **Qx, DBL_TYPE **Qx_1,
                DBL_TYPE **Qx_2, int len, int seqlength);
 //manageFx is the mfe version
 void manageFx( DBL_TYPE **Fx, DBL_TYPE **Fx_1,
@@ -291,11 +285,11 @@ void manageFgIx( DBL_TYPE **FgIx, DBL_TYPE **FgIx_1,
                                  int useLongHelix);
 
 //Load energy parameters.  Global variable DNARNACOUNT determines parameter set
-void LoadEnergies( void);
-void setParametersToZero( void);
+void LoadEnergies(energy_model_t *energy_model);
+void setParametersToZero(energy_model_t *energy_model);
 
 //Set Q[ pf_index(i, i-1, seqlength)] = 1;
-void nonZeroInit( DBL_TYPE Q[], int seq[], int seqlength);
+DEV void nonZeroInit( DBL_TYPE Q[], int seq[], int seqlength);
 
 /*InitEtaN() initializes the etaN array.  etaN[ EtaNIndex(i,j,seqlength)][0] is the
   number of nicks between i and  j (i,j in [0.5, 1.5, 2.5, ...]).
@@ -303,7 +297,7 @@ void nonZeroInit( DBL_TYPE Q[], int seq[], int seqlength);
   in the region between i and j, i.e. nicks[ EtaNIndex...] is the position
   of the leftmost nick between i and j.
 */
-void InitEtaN( int **etaN, const int *nicks, int seqlength);
+DEV void InitEtaN( int **etaN, const int *nicks, int seqlength);
 int EtaNIndex_old( float i, float j, int seqlength);
 
 /* These functions set the size of Qg and Fg matrices is correct
@@ -357,11 +351,11 @@ int convertSeq(char *seqchar, int* seqnum, int seqlength);
 int printSeqNum(int seqnum[]);
 
 //converts a pair to an index (For energy calculations)
-int GetMismatchShift( int base1, int base2);
+DEV int GetMismatchShift( int base1, int base2);
 
 //Returns the pair type (similar to GetMismatchShift), except assumes
 //a Watson Crick (non-Wobble) pair
-int GetPairType( int b);
+DEV int GetPairType( int b);
 
 //returns TRUE if two bases can form a pair.
 int CanPairOld( int i, int j);
@@ -448,57 +442,56 @@ int fileExists( char*);
 /*                       BEGIN FUNCTIONS FROM ENERGY.C                              */
 /* ******************************************************************************** */
 //Nearest neighbor energy of two consecutive base pairs
-DBL_TYPE HelixEnergy( int i, int j, int h, int m);
+DEV DBL_TYPE HelixEnergy( int i, int j, int h, int m);
 
 //interior mismatch energy
-DBL_TYPE InteriorMM( char a, char b, char x, char y);
+DEV DBL_TYPE InteriorMM( char a, char b, char x, char y);
 
 //hairpin energy
-DBL_TYPE HairpinEnergy( int i, int j, int seq[] );
+DEV DBL_TYPE HairpinEnergy( int i, int j, int seq[] );
 
 //interior loop energy
-DBL_TYPE InteriorEnergy(  int i, int j, int h, int m, int seq[]);
+DEV DBL_TYPE InteriorEnergy(  int i, int j, int h, int m, int seq[]);
 
 //interior loop energy, but allows for the exclusion of the i-j mismatch
 //contribution (for use with fast i loop calculations)
-DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[], int);
+DEV DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[], int);
 
 //Calculate dangle energies, assuming the entire structure is known
 //(and can hence accurately calculate wobble pair dangles)
-DBL_TYPE DangleEnergyWithPairs( int i, int j, fold* thefold);
+DEV DBL_TYPE DangleEnergyWithPairs( int i, int j, fold* thefold);
 
 //Calculates the dangle energy of a subsequence (i,j), assuming
 //i-1, j+1 are paired (unless near a strand break).
 //DangleEnergy miscalculates the dangles of nearby wobble pairs
-DBL_TYPE DangleEnergy( int i, int j, int seq[], int seqlength);
+DEV DBL_TYPE DangleEnergy( int i, int j, int seq[], int seqlength);
 
 //Calculates exp(-(dangle energy)/RT) and
 //exp( -(interior loop energy)/RT), respectively
-extern unsigned int seqHash;
-DBL_TYPE ExplDangle( int i, int j, int seq[], int seqlength);
-DBL_TYPE ExplInternal( int i, int j, int h, int m, int seq[]);
+DEV DBL_TYPE ExplDangle( int i, int j, int seq[], int seqlength);
+DEV DBL_TYPE ExplInternal( int i, int j, int h, int m, int seq[]);
 
 //NickDangle calculates the dangle energy, taking into account the effects
 //of strand breaks (nicks).  If hairpin == TRUE, then this region is a nicked hairpin
 //and may be closed by a wobble pair
-DBL_TYPE NickDangle(  int i, int j, const int *nicks, int **etaN, int hairpin,
+DEV DBL_TYPE NickDangle(  int i, int j, const int *nicks, int **etaN, int hairpin,
                       int seq[], int seqlength);
 
 /* Computes the energy of an exterior loop with no secondary structure,
    and returns either exp( -energy/RT) or simply energy*/
-DBL_TYPE NickedEmptyQ( int i, int j, const int nicks[], int seq[],
+DEV DBL_TYPE NickedEmptyQ( int i, int j, const int nicks[], int seq[],
                        int seqlength, int **etaN);
-DBL_TYPE NickedEmptyF( int i, int j, const int nicks[], int seq[],
+DEV DBL_TYPE NickedEmptyF( int i, int j, const int nicks[], int seq[],
                        int seqlength, int **etaN);
 
 // Lookup table for the function 1.75*kB*TEMP_K*LOG_FUNC( size/30.0)
-DBL_TYPE sizeLog(int size);
+DEV DBL_TYPE sizeLog(int size);
 
 // Lookup table for contraction part of prFastILoops
-DBL_TYPE sizeEnergyLog(int size);
+DEV DBL_TYPE sizeEnergyLog(int size);
 
 //Computes the contribution of asymmetry and size to a large interior loop
-DBL_TYPE asymmetryEfn( int L1, int L2, int size);
+DEV DBL_TYPE asymmetryEfn( int L1, int L2, int size);
 /* ******************************************************************************** */
 /*                         END FUNCTIONS FROM ENERGY.C                              */
 /* ******************************************************************************** */
@@ -508,52 +501,52 @@ DBL_TYPE asymmetryEfn( int L1, int L2, int size);
 /*                         BEGIN FUNCTIONS FROM SUMEXP.C                            */
 /* ******************************************************************************** */
 //Hairpin energy (exp)
-DBL_TYPE ExplHairpin( int i, int j, int seq[], int seqlength, int **etaN);
+DEV DBL_TYPE ExplHairpin( int i, int j, int seq[], int seqlength, int **etaN);
 
 //Calculates the contribution to the partition function of multiloops (non-nicked)
-DBL_TYPE SumExpMultiloops( int i, int j, int seq[],
+DEV DBL_TYPE SumExpMultiloops( int i, int j, int seq[],
                            DBL_TYPE *Qms, DBL_TYPE *Qm, int seqlength,
                            int **etaN);
 //Calculates the contribution of exterior loops
-DBL_TYPE SumExpExteriorLoop( int i,int j, int seq[], int seqlength,
+DEV DBL_TYPE SumExpExteriorLoop( int i,int j, int seq[], int seqlength,
                              DBL_TYPE *Q,
                              int *nicks, int **etaN);
 
 //Computes Qs, Qms  (pairs in exterior loops, multi loops)
-void MakeQs_Qms( int i, int j, int seq[], int seqlength,
+DEV void MakeQs_Qms( int i, int j, int seq[], int seqlength,
                  DBL_TYPE *Qs, DBL_TYPE *Qms, DBL_TYPE *Qb,
                  int *nicks, int **etaN);
 
 //Computes Q, Qm for complexity = 3 algorithm
-void MakeQ_Qm_N3( int i, int j, int seq[], int seqlength,
+DEV void MakeQ_Qm_N3( int i, int j, int seq[], int seqlength,
                   DBL_TYPE *Q, DBL_TYPE *Qs,
                   DBL_TYPE *Qms, DBL_TYPE *Qm,
                   int *nicks, int **etaN);
 
-//void MakeQ_Qm_N4( int i, int j, int seq[], int seqlength,
-//                  DBL_TYPE *Q, DBL_TYPE *Qm, DBL_TYPE *Qb );
+DEV void MakeQ_Qm_N4( int i, int j, int seq[], int seqlength,
+                  DBL_TYPE *Q, DBL_TYPE *Qm, DBL_TYPE *Qb );
 
 //Calculates contribution of interior loops and multiloops
 //for complexity >= 4 methods.  Less memory usage, more time required
 //than complexity = 3 method.  Same result.
-DBL_TYPE SumExpInterior_Multi( int i, int j, int seq[], int seqlength,
-                               DBL_TYPE *Qm, DBL_TYPE *Qb);
+DEV DBL_TYPE SumExpInterior_Multi( int i, int j, int seq[], int seqlength,
+                               DBL_TYPE *Qm, DBL_TYPE *Qb, int ** etaN);
 
 //Efficiently calculates the contribution of large interior loops
-void fastILoops( int i, int j, int L, int seqlength, int seq[],
+DEV void fastILoops( int i, int j, int L, int seqlength, int seq[],
                  int **etaN,
                  DBL_TYPE *Qb, DBL_TYPE *Qx, DBL_TYPE *Qx_2);
 
 
 //makeNewQx creates new "extensible" base cases for the interval i,j.
-void makeNewQx( int i, int j, int seq[], int seqlength,
+DEV void makeNewQx( int i, int j, int seq[], int seqlength,
                 int **etaN, DBL_TYPE Qb[], DBL_TYPE Qx[]);
 //extendOldQx extends Qx for the i-1, j+1 case
-void extendOldQx( int i, int j, int seqlength,
+DEV void extendOldQx( int i, int j, int seqlength,
                   DBL_TYPE Qx[], DBL_TYPE Qx_2[]);
 
 //Directly calculates the contribution of small interior loops
-DBL_TYPE SumExpInextensibleIL( int i, int j, int seq[], int seqlength,
+DEV DBL_TYPE SumExpInextensibleIL( int i, int j, int seq[], int seqlength,
                                DBL_TYPE Qb[],  int **etaN);
 /* ******************************************************************************** */
 /*                           END FUNCTIONS FROM SUMEXP.C                            */
@@ -1064,9 +1057,6 @@ void header( int, char**, char*, char*);
 /*                   END FUNCTIONS FROM READCOMMANDLINENPK.C                        */
 /* ******************************************************************************** */
 
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

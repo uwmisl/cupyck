@@ -10,20 +10,18 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 #include <time.h>
 #include <float.h>
 
 #include "pfuncUtilsHeader.h"
-#include "hash.h"
 #include "DNAExternals.h"
 
-unsigned int seqHash;
-int use_cache;
-DBL_TYPE ExplDangleRaw( int i, int j, int seq[], int seqlength);
+DEV DBL_TYPE ExplDangleRaw( int i, int j, int seq[], int seqlength);
 
 /* ************************************** */
-
+DEV
 DBL_TYPE HelixEnergy( int i, int j, int h, int m) {
   // Calculate the energy of the helical region closed by pair
   // i-j and h-m.  Data from Zuker's mfold file stack.dgd
@@ -31,34 +29,33 @@ DBL_TYPE HelixEnergy( int i, int j, int h, int m) {
   int shift_ij; // Type of base pair
   int shift_hm; // Type of base pair
 
-  extern DBL_TYPE Stack[];
-
   shift_ij = GetMismatchShift( i, j);
   shift_hm = GetMismatchShift( h, m);
 
   if( shift_ij < 4 && shift_hm < 4) {
-    return Stack[ ( i - 1)*6 + (h - 1) ];
+    return ENERGIES.Stack[ ( i - 1)*6 + (h - 1) ];
   }
 
   if( shift_ij < 4 && shift_hm >= 4) {
-    return Stack[ (i - 1)*6 + (h + 1) ];
+    return ENERGIES.Stack[ (i - 1)*6 + (h + 1) ];
   }
 
   if( shift_ij >= 4 && shift_hm < 4) {
-    return Stack[ (i + 1)*6 + (h - 1) ];
+    return ENERGIES.Stack[ (i + 1)*6 + (h - 1) ];
   }
 
   if( shift_ij >= 4 && shift_hm >= 4) {
-    return Stack[ (i + 1)*6 + (h + 1) ];
+    return ENERGIES.Stack[ (i + 1)*6 + (h + 1) ];
   }
   else {
-    fprintf(stderr, "Error in HelixEnergy!");
-    exit(1);
+    printf("Error in HelixEnergy!");
+    assert(0);
     return NAD_INFINITY; // This never is returned
   }
 }
 
 // *******************************************************************
+DEV
 DBL_TYPE InteriorMM( char a, char b, char x, char y) {
 /*
   Interior Mismatch calculation
@@ -69,19 +66,18 @@ DBL_TYPE InteriorMM( char a, char b, char x, char y) {
   Interactions energies taken from file tstacki2.dgd.
 */
 
-  extern DBL_TYPE MMEnergiesIL[];
   int cp_shift;
   DBL_TYPE energy = 0.0;
 
   cp_shift = GetMismatchShift( a, b );
-  energy = MMEnergiesIL[ (4*(( x) - 1) + (( y) - 1) )*6 + cp_shift];
+  energy = ENERGIES.MMEnergiesIL[ (4*(( x) - 1) + (( y) - 1) )*6 + cp_shift];
 
   return energy;
 }
 
 /* ********************************************** */
 
-
+DEV
 DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
 
   // This gives the energy of the hairpion closed by bases i and j
@@ -114,13 +110,13 @@ DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
   }
 
   if( size <= 30) {
-    energy = loop37[ 60 + size - 1];
+    energy = ENERGIES.loop37[ 60 + size - 1];
   }
   else {
-    energy = loop37[ 60 + 30 - 1];
+    energy = ENERGIES.loop37[ 60 + 30 - 1];
     energy += sizeLog (size); //1.75*kB*TEMP_K*LOG_FUNC( size/30.0);
 
-    if( DNARNACOUNT == COUNT) {
+    if( ENERGIES.dnarnacount == COUNT) {
       energy = 0;
     }
 
@@ -130,7 +126,7 @@ DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
     //Get Triloop energy
 
     if( seq[i] != BASE_C && seq[j] != BASE_C) {
-      energy += AT_PENALTY;
+      energy += ENERGIES.at_penalty;
     }
 
     triloopnumber = 256*(( seq[i]) - 1) +
@@ -140,11 +136,11 @@ DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
       1*( ( seq[j]) - 1);
 
     // 0 mismatch energy for triloops
-    energy += triloop_energy[ triloopnumber];
+    energy += ENERGIES.triloop_energy[ triloopnumber];
 
     //Poly-C loop
     if( polyC == TRUE) {
-      energy += POLYC3;
+      energy += ENERGIES.polyc3;
     }
   }
   else if (size == 4) {
@@ -155,17 +151,17 @@ DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
       16*( ( seq[j - 2]) - 1) +
       4*(  ( seq[j - 1]) - 1) +
       1*(  ( seq[j])- 1);
-    energy +=  tloop_energy[ tloopnumber];
+    energy +=  ENERGIES.tloop_energy[ tloopnumber];
 
     //Next do mismatches.
     cp_shift = GetMismatchShift( seq[i], seq[j]);
 
-    energy += MMEnergiesHP[(4*(( seq[i + 1]) - 1) +
+    energy += ENERGIES.MMEnergiesHP[(4*(( seq[i + 1]) - 1) +
                             (( seq[j - 1]) - 1) )*6
                            + cp_shift];
     //Poly-C loop
     if( polyC == TRUE) {
-      energy += POLYCSLOPE*size + POLYCINT;
+      energy += ENERGIES.polycslope*size + ENERGIES.polycint;
     }
   }
 
@@ -173,13 +169,13 @@ DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
     // Calculate mismatch
     cp_shift = GetMismatchShift( seq[i], seq[j]);
 
-    energy += MMEnergiesHP[(4*(( seq[i + 1]) - 1) +
+    energy += ENERGIES.MMEnergiesHP[(4*(( seq[i + 1]) - 1) +
                             (( seq[j - 1]) - 1) )*6
                            + cp_shift];
 
     //Poly-C loop
     if( polyC == TRUE) {
-      energy += POLYCSLOPE*size + POLYCINT;
+      energy += ENERGIES.polycslope*size + ENERGIES.polycint;
     }
   }
   return energy;
@@ -188,10 +184,12 @@ DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
 
 
 /* ****************************************** */
+DEV
 DBL_TYPE InteriorEnergy(  int i, int j, int h, int m, int seq[]) {
   return InteriorEnergyFull( i, j, h, m, seq, TRUE);
 }
 
+DEV
 DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
                              int calcIJ) {
 
@@ -201,11 +199,11 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
   int asymmetry;
   int cp_shift, ip_shift;  // For classifying basepairs
 
-  if( DNARNACOUNT == COUNT) return 0;
+  if( ENERGIES.dnarnacount == COUNT) return 0;
 #ifdef DEBUG
   if( i >= h || h >= m || m >= j) {
-    fprintf(stderr, "Invalid boundary to interior loop! %d %d %d %d\n", i, h, m, j);
-    exit(1);
+    printf("Invalid boundary to interior loop! %d %d %d %d\n", i, h, m, j);
+    assert(0);
   }
 #endif
 
@@ -219,25 +217,25 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
 
   else if ( L1*L2 == 0) { //Bulge
     if( size <= 30) {
-      energy = loop37[ 30 + size - 1];
+      energy = ENERGIES.loop37[ 30 + size - 1];
     }
     else {
-      energy = loop37[ 30 + 30 - 1];
+      energy = ENERGIES.loop37[ 30 + 30 - 1];
       energy += sizeLog (size); //1.75*kB*TEMP_K*LOG_FUNC( size/30.0);
     }
 
     if( L1 + L2 == 1 ) { //single bulge...treat as a stacked region
       energy += HelixEnergy( seq[i], seq[j], seq[h], seq[m] );
-      energy -= SALT_CORRECTION;  // Correct for the extra salt correction
+      energy -= ENERGIES.salt_correction;  // Correct for the extra salt correction
                                  // added from the HelixEnergy
     }
     else {
       // Next do AT_Penalty for no GC termination, assuming size >= 2
       if( seq[i] != BASE_C && seq[j] != BASE_C) {
-        energy += AT_PENALTY;
+        energy += ENERGIES.at_penalty;
       }
       if( seq[h] != BASE_C && seq[m] != BASE_C) {
-        energy += AT_PENALTY;
+        energy += ENERGIES.at_penalty;
       }
     }
   }
@@ -267,8 +265,8 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
 #endif
       }
       else {
-        fprintf(stderr, "Error: Unclassified interior loop!\n");
-        exit(1);
+        printf("Error: Unclassified interior loop!\n");
+        assert(0);
       }
     }
     else { //get tabulated data
@@ -276,7 +274,7 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
         cp_shift = GetMismatchShift( seq[i], seq[j]);
         ip_shift = GetMismatchShift( seq[h], seq[m]);
         if (cp_shift==-1 || ip_shift==-1) return 0.0; //Wrongly called
-        energy += IL_SInt2[ 96*cp_shift + 16*ip_shift +
+        energy += ENERGIES.IL_SInt2[ 96*cp_shift + 16*ip_shift +
                            4*(( seq[i+1]) - 1) +
                            (( seq[ j -1]) - 1) ];
       }
@@ -284,7 +282,7 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
         cp_shift = GetMismatchShift( seq[i], seq[j]);
         ip_shift = GetMismatchShift( seq[h], seq[m]);
         if (cp_shift==-1 || ip_shift==-1) return 0.0; //Wrongly called
-        energy += IL_SInt4[ cp_shift*256*6 +  ip_shift*256 +
+        energy += ENERGIES.IL_SInt4[ cp_shift*256*6 +  ip_shift*256 +
                            (4*(( seq[ i+1])  - 1) +
                             ( seq[ j - 1])   - 1)*16 +
                            (4*( ( seq[ i+2]) - 1) +
@@ -294,7 +292,7 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
         cp_shift = GetMismatchShift( seq[i], seq[j]);
         ip_shift = GetMismatchShift( seq[h], seq[m]);
         if (cp_shift==-1 || ip_shift==-1) return 0.0; //Wrongly called
-        energy += IL_AsInt1x2[ cp_shift*4*24*4 +
+        energy += ENERGIES.IL_AsInt1x2[ cp_shift*4*24*4 +
                               (( seq[ j - 2]) - 1)*24*4 +
                               (( seq[ i + 1]) - 1)*24 +
                               4*ip_shift +
@@ -307,21 +305,21 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
         //note reversed order of inputs above.
         //This is to comply with the format of asint1x2
 
-        energy += IL_AsInt1x2[ ip_shift*4*24*4 +
+        energy += ENERGIES.IL_AsInt1x2[ ip_shift*4*24*4 +
                               (( seq[i + 1]) - 1)*24*4 +
                               (( seq[j - 1]) - 1)*24 +
                               4*cp_shift +
                               ((( seq[i + 2]) - 1) % 4) ];
       }
       else {
-        fprintf(stderr, "Error in tabulated Interior Loop!\n");
-        exit(1);
+        printf("Error in tabulated Interior Loop!\n");
+        assert(0);
       }
     }
   }
   else {
-    fprintf(stderr, "Improperly classified Interior Loop!\n");
-    exit(1);
+    printf("Improperly classified Interior Loop!\n");
+    assert(0);
   }
 
   return energy;
@@ -330,12 +328,12 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
 
 
 /* ********************************************** */
+DEV
 DBL_TYPE DangleEnergyWithPairs( int i, int j, fold *thefold) {
 
   DBL_TYPE dangle5 = NAD_INFINITY;
   DBL_TYPE dangle3 = NAD_INFINITY;
   int dangle_shift;
-  extern DBL_TYPE dangle_energy[];
   int *pairs = thefold->pairs;
   int *seq = thefold->seq;
   int seqlength = thefold->seqlength;
@@ -366,14 +364,14 @@ DBL_TYPE DangleEnergyWithPairs( int i, int j, fold *thefold) {
 #ifdef MATCH_PF
     if( dangle_shift >= 4) {
 #ifdef STRUCTURE_WARNINGS
-      fprintf(stderr, "Error! This struture not in PF because of wobble %d %d\n", i, j);
+      printf("Error! This struture not in PF because of wobble %d %d\n", i, j);
 #endif
         return NAD_INFINITY;
-      exit(1);
+      assert(0);
     }
 #endif
     if( j != -1)
-      dangle3 = dangle_energy[ 24 + dangle_shift*4 + ( seq[ j]) - 1];
+      dangle3 = ENERGIES.dangle_energy[ 24 + dangle_shift*4 + ( seq[ j]) - 1];
   }
 
   if( i == 0) {
@@ -391,13 +389,13 @@ DBL_TYPE DangleEnergyWithPairs( int i, int j, fold *thefold) {
     }
 #endif
     if( i != seqlength)
-      dangle5 = dangle_energy[ dangle_shift*4 + ( seq[ i]) - 1];
+      dangle5 = ENERGIES.dangle_energy[ dangle_shift*4 + ( seq[ i]) - 1];
   }
 
-  if( DANGLETYPE != 2 && j == i - 1) {
+  if( ENERGIES.dangletype != 2 && j == i - 1) {
     return 0;
   }
-  else if( DANGLETYPE == 2 && j == i - 1 && (i == 0 || j == seqlength - 1) ) {
+  else if( ENERGIES.dangletype == 2 && j == i - 1 && (i == 0 || j == seqlength - 1) ) {
     return 0;
   }
 
@@ -412,106 +410,16 @@ DBL_TYPE DangleEnergyWithPairs( int i, int j, fold *thefold) {
   if( nick5 && !nick3) return dangle3;
   if( !nick5 && nick3) return dangle5;
 
-  if( DANGLETYPE == 1 && i == j && i != 0 && j != seqlength - 1) {
+  if( ENERGIES.dangletype == 1 && i == j && i != 0 && j != seqlength - 1) {
     return MIN(dangle3, dangle5 );
   }
 
   return dangle3 + dangle5;
 }
 
-/* ******************************** */
-#ifdef COAXIAL
-DBL_TYPE CoaxDangle( int whichDangle, int i, int j, int pairs[], int seq[], int seqlength) {
-
-  DBL_TYPE dangle5 = 0;
-  DBL_TYPE dangle3 = 0;
-  int dangle_shift;
-  extern DBL_TYPE dangle_energy[];
-
-  int pairi1 = pairs[i-1];
-  int pairj1 = pairs[j+1];
-
-#ifdef MATCH_PF
-  fprintf(stderr, "Coaxially Stacking needs to be off to match PF calculations!\n");
-  exit(1);
-#endif
-
-#ifndef VIENNA_D2
-  if( j == i - 1) {
-    return 0;
-  }
-
-#else
-  if( j == i - 1 && (i == 0 || j == seqlength - 1) ) {
-    return 0;
-  }
-#endif
-
-  if( j == seqlength - 1) {
-    dangle3 = 0;
-  }
-  else {
-    dangle_shift = GetMismatchShift( seq[ pairj1], seq[ j+1]);
-#ifdef MATCH_PF
-    if( dangle_shift >= 4) {
-#ifdef STRUCTURE_WARNINGS
-      fprintf(stderr, "Error! This struture not in PF because of wobble %d %d\n", i, j);
-#endif
-        return NAD_INFINITY;
-      //exit(1);
-    }
-#endif
-    dangle3 = dangle_energy[ 24 + dangle_shift*4 + ( seq[ j]) - 1];
-  }
-
-  if( i == 0) {
-    dangle5 = 0;
-  }
-  else {
-    dangle_shift = GetMismatchShift( seq[ i-1], seq[ pairi1]);
-#ifdef MATCH_PF
-    if( dangle_shift >= 4) {
-
-#ifdef STRUCTURE_WARNINGS
-      fprintf(stderr, "Error! This struture not in PF because of wobble- %d %d\n",i,j);
-#endif
-        return NAD_INFINITY;
-    }
-#endif
-
-    dangle5 = dangle_energy[ dangle_shift*4 +
-                            ( seq[ i]) - 1];
-  }
-
-  if( whichDangle == 3) {
-    return dangle3;
-  }
-
-  if( whichDangle == 5) {
-    return dangle5;
-  }
-
-  if( whichDangle == 53) {
-
-#ifndef VIENNA_D2
-    if( i == j && i != 0 && j != seqlength - 1) {
-      return MIN(dangle3, dangle5 );
-    }
-    else {
-      return dangle3 + dangle5;
-    }
-#else
-    return dangle3 + dangle5;
-#endif
-  }
-  else {
-    fprintf(stderr, "Invalid whichDangle Value of %d in CoaxDangle\n", whichDangle);
-    exit(1);
-  }
-}
-#endif
 
 /* ******************************** */
+DEV
 DBL_TYPE DangleEnergy( int i, int j, int seq[], int seqlength) {
   //0 energy except for dangles
 
@@ -519,7 +427,7 @@ DBL_TYPE DangleEnergy( int i, int j, int seq[], int seqlength) {
   DBL_TYPE dangle3 = 0;
   int dangle_shift;
 
-  if( DANGLETYPE != 2) {
+  if( ENERGIES.dangletype != 2) {
     if( j == i - 1) {
       return 0;
     }
@@ -535,10 +443,10 @@ DBL_TYPE DangleEnergy( int i, int j, int seq[], int seqlength) {
     int pt=GetPairType( seq[ j + 1]);
     if (pt==-1) {
       printf("i=%d j=%d seq[%d]=%d\n",i,j,j-1,seq[j-1]);
-      exit(-1);
+      assert(0);
     }
     dangle_shift = 3 - pt;
-    dangle3 = dangle_energy[ 24 + dangle_shift*4 +
+    dangle3 = ENERGIES.dangle_energy[ 24 + dangle_shift*4 +
                             ( seq[ j]) - 1];
   }
 
@@ -549,15 +457,15 @@ DBL_TYPE DangleEnergy( int i, int j, int seq[], int seqlength) {
     int pt=GetPairType( seq[ i - 1]);
     if (pt==-1) {
       printf("i=%d j=%d seq[%d]=%d\n",i,j,i-1,seq[i-1]);
-      exit(-1);
+      assert(0);
     }
 
     dangle_shift = pt;
-    dangle5 = dangle_energy[ dangle_shift*4 +
+    dangle5 = ENERGIES.dangle_energy[ dangle_shift*4 +
                             ( seq[ i]) - 1];
   }
 
-  if( DANGLETYPE != 2 && i == j && i != 0 && j != seqlength - 1) {
+  if( ENERGIES.dangletype != 2 && i == j && i != 0 && j != seqlength - 1) {
     return MIN(dangle3, dangle5 );
   }
 
@@ -565,6 +473,7 @@ DBL_TYPE DangleEnergy( int i, int j, int seq[], int seqlength) {
 }
 
 /* ******************************** */
+DEV
 DBL_TYPE ExplDangleRaw( int i, int j, int seq[], int seqlength) {
   //0 energy except for dangles
 
@@ -584,7 +493,7 @@ DBL_TYPE ExplDangleRaw( int i, int j, int seq[], int seqlength) {
   }
   else {
     dangle_shift = 3 - GetPairType( seq[ j + 1]);
-    dangle3 = dangle_energy[ 24 + dangle_shift*4 +
+    dangle3 = ENERGIES.dangle_energy[ 24 + dangle_shift*4 +
                             seq[ j] - 1];
   }
 
@@ -593,44 +502,46 @@ DBL_TYPE ExplDangleRaw( int i, int j, int seq[], int seqlength) {
   }
   else {
     dangle_shift = GetPairType( seq[i-1]);
-    dangle5 = dangle_energy[ dangle_shift*4 +
+    dangle5 = ENERGIES.dangle_energy[ dangle_shift*4 +
                             seq[ i] - 1];
   }
 
   if(i == j && i != 0 && j != seqlength - 1) {
-    if (DANGLETYPE == 2) return EXP_FUNC(-(dangle5 + dangle3)/(TEMP_K*kB));
-    return EXP_FUNC( -MIN(dangle3, dangle5)/(TEMP_K*kB) );
+    if (ENERGIES.dangletype == 2) return EXP_FUNC(-(dangle5 + dangle3)/(ENERGIES.temp_k*kB));
+    return EXP_FUNC( -MIN(dangle3, dangle5)/(ENERGIES.temp_k*kB) );
   }
 
-  return EXP_FUNC( -(dangle3 + dangle5)/(TEMP_K*kB) );
+  return EXP_FUNC( -(dangle3 + dangle5)/(ENERGIES.temp_k*kB) );
 }
 
+//TODO: disable cache?
+DEV
 DBL_TYPE ExplDangle( int i, int j, int seq[], int seqlength) {
+  return ExplDangleRaw(i,j,seq,seqlength);
+  /*
   static DBL_TYPE *EDCache=NULL;
   static int CacheInd=-1, nCaches=0, dangleTypeCache=2;
   static DBL_TYPE TCache;
-  static unsigned int SCache=1;
 
-  if (!use_cache) return ExplDangleRaw(i,j,seq,seqlength);
-  if (CacheInd==-1 || SCache!=seqHash || TCache!=TEMP_K
-      || dangleTypeCache!=DANGLETYPE){ // We got a new sequence or temp
+  if (CacheInd==-1 || TCache!=ENERGIES.temp_k
+      || dangleTypeCache!=ENERGIES.dangletype){ // We got a new sequence or temp
     int d,e;
     if (CacheInd!=-1 || EDCache)
       free(EDCache);
-    EDCache=(DBL_TYPE *)calloc((seqlength+1)*(seqlength+1),sizeof(DBL_TYPE));
+    EDCache=(DBL_TYPE *)malloc((seqlength+1)*(seqlength+1)*sizeof(DBL_TYPE));
+    for (int idx = 0; idx < (seqlength + 1) * (seqlength + 1); ++idx) {
+      EDCache[idx] = 0;
+    }
     if (!EDCache){
-      use_cache=0;
-      fprintf(stderr, "ExplDangle: unable to allocate %lu bytes, disabling cache\n",(unsigned long)(seqlength+1)*(seqlength+1)*sizeof(DBL_TYPE));
+      printf("ExplDangle: unable to allocate %lu bytes, disabling cache\n",(unsigned long)(seqlength+1)*(seqlength+1)*sizeof(DBL_TYPE));
+      assert(0);
       return ExplDangleRaw(i,j,seq,seqlength);
       //exit(0);
     }
     CacheInd=nCaches++;
 
-    seqHash=vechash((char *)seq, (unsigned int) seqlength*sizeof(int));
-    SCache=seqHash;
-
-    TCache=TEMP_K;
-    dangleTypeCache=DANGLETYPE;
+    TCache=ENERGIES.temp_k;
+    dangleTypeCache=ENERGIES.dangletype;
 
     for (d=0;d<seqlength+1;d++){
       for (e=-1;e<seqlength;e++){
@@ -641,17 +552,18 @@ DBL_TYPE ExplDangle( int i, int j, int seq[], int seqlength) {
 
 
   return EDCache[(i*(seqlength+1)+(j+1))];
+  */
 }
 
 
 /* *********** */
+DEV
 DBL_TYPE NickDangle(int i, int j, const int *nicks, int **etaN, int hairpin,
                     int seq[], int seqlength) {
 
   DBL_TYPE dangle5 = 0;
   DBL_TYPE dangle3 = 0;
   int dangle_shift;
-  extern DBL_TYPE dangle_energy[];
   int nick;
   int nIndex;
 
@@ -673,7 +585,7 @@ DBL_TYPE NickDangle(int i, int j, const int *nicks, int **etaN, int hairpin,
     nick = nicks[ etaN[ nIndex][1]];
   }
 
-  if( DNARNACOUNT == COUNT)
+  if( ENERGIES.dnarnacount == COUNT)
     return 0;
 
   if( j == i - 1) {
@@ -694,7 +606,7 @@ DBL_TYPE NickDangle(int i, int j, const int *nicks, int **etaN, int hairpin,
       dangle_shift = GetMismatchShift( seq[i-1], seq[j+1]);
     }
 
-    dangle3 = dangle_energy[ 24 + dangle_shift*4 +
+    dangle3 = ENERGIES.dangle_energy[ 24 + dangle_shift*4 +
                             ( seq[ j]) - 1];
   }
 
@@ -709,7 +621,7 @@ DBL_TYPE NickDangle(int i, int j, const int *nicks, int **etaN, int hairpin,
       dangle_shift = GetMismatchShift( seq[i-1], seq[j+1]);
     }
 
-    dangle5 = dangle_energy[ dangle_shift*4 +
+    dangle5 = ENERGIES.dangle_energy[ dangle_shift*4 +
                             ( seq[ i]) - 1];
   }
 
@@ -721,24 +633,25 @@ DBL_TYPE NickDangle(int i, int j, const int *nicks, int **etaN, int hairpin,
       return dangle3 + dangle5;
     }
     if(j == i && i != 0 && j != seqlength - 1) {
-      if (DANGLETYPE == 2) return dangle3 + dangle5;
+      if (ENERGIES.dangletype == 2) return dangle3 + dangle5;
       return MIN(dangle3, dangle5);
     }
     //j == i-1 already handled above
   }
-  fprintf(stderr, "Error with function: NickDangle\n");
-  exit(-1);
+  printf("Error with function: NickDangle\n");
+  assert(0);
   return -1; //Error!  This should never happen
 }
 
 /* ************** */
+DEV
 DBL_TYPE NickedEmptyQ( int i, int j, const int nicks[], int seq[],
                       int seqlength, int **etaN) {
 
   if( j <= i || etaN[ EtaNIndex( i+0.5, j-0.5, seqlength)][0] == 0) {
     return EXP_FUNC( -1*NickDangle(i, j, nicks, etaN,
                               FALSE, seq, seqlength)
-                /(kB*TEMP_K));
+                /(kB*ENERGIES.temp_k));
   }
   else { //disconnected
     return 0;
@@ -747,6 +660,7 @@ DBL_TYPE NickedEmptyQ( int i, int j, const int nicks[], int seq[],
 }
 
 /* ******** */
+DEV
 DBL_TYPE NickedEmptyF( int i, int j, const int nicks[], int seq[],
                        int seqlength, int **etaN) {
   DBL_TYPE result = NAD_INFINITY;
@@ -759,6 +673,7 @@ DBL_TYPE NickedEmptyF( int i, int j, const int nicks[], int seq[],
 }
 
 /* ********* */
+DEV
 DBL_TYPE ExplInternal( int i, int j, int h, int m, int seq[]) {
   // Calculates E^(-energy/RT) of interior loop closed by i-j and h-m
 
@@ -766,15 +681,19 @@ DBL_TYPE ExplInternal( int i, int j, int h, int m, int seq[]) {
   if( energy == NAD_INFINITY) {
     return 0.0;
   }
-  return EXP_FUNC( - energy/( kB*TEMP_K));
+  return EXP_FUNC( - energy/( kB*ENERGIES.temp_k));
 }
 
+//TODO: caches, huh?
+DEV
 DBL_TYPE sizeLog(int size){
+  return 1.75*kB*ENERGIES.temp_k*LOG_FUNC(size/30.0);
+  /*
   static DBL_TYPE *slCache[MAXSTRANDS], *edc, tc;
   static int CacheInd=-1, nCaches=0;
   static DBL_TYPE TCache[MAXSTRANDS];
 
-  if (CacheInd==-1 || tc!=TEMP_K){ // We got a new sequence or temp
+  if (CacheInd==-1 || tc!=ENERGIES.temp_k){ // We got a new sequence or temp
     static unsigned int keySize=sizeof(int)+sizeof(DBL_TYPE);
     char key[sizeof(int*)+sizeof(DBL_TYPE)];
     static int IndCache[MAXSTRANDS];
@@ -788,7 +707,7 @@ DBL_TYPE sizeLog(int size){
 
     // Calculate key
     memcpy((void*)key, (void *)&size,sizeof(int));
-    memcpy((void*)(key+sizeof(int)), (void *)&TEMP_K ,sizeof(DBL_TYPE));
+    memcpy((void*)(key+sizeof(int)), (void *)&ENERGIES.temp_k ,sizeof(DBL_TYPE));
 
     // Search for key
     indP=hash_get (expHash, key, keySize);
@@ -798,11 +717,11 @@ DBL_TYPE sizeLog(int size){
       hash_add(expHash, key, keySize, (void *)&IndCache[CacheInd]);
 
       slCache[CacheInd]=(DBL_TYPE *)malloc(MAXSEQLENGTH*sizeof(DBL_TYPE));
-      TCache[CacheInd]=TEMP_K;
+      TCache[CacheInd]=ENERGIES.temp_k;
 
       slCache[CacheInd][0]=0.0;
       for (d=1;d<MAXSEQLENGTH;d++){
-          slCache[CacheInd][d]=1.75*kB*TEMP_K*LOG_FUNC( d/30.0);
+          slCache[CacheInd][d]=1.75*kB*ENERGIES.temp_k*LOG_FUNC( d/30.0);
       }
       indP=hash_get (expHash, key, keySize);
     }
@@ -812,72 +731,12 @@ DBL_TYPE sizeLog(int size){
   }
 
   return edc[size];
-
-}
-
-DBL_TYPE sizeEnergyLog(int size){
-  static DBL_TYPE *slCache[MAXSTRANDS], *edc, tc;
-  static int CacheInd=-1, nCaches=0;
-  static DBL_TYPE TCache[MAXSTRANDS];
-
-  if (CacheInd==-1 || tc!=TEMP_K){ // We got a new sequence or temp
-    static unsigned int keySize=sizeof(int)+sizeof(DBL_TYPE);
-    char key[sizeof(int*)+sizeof(DBL_TYPE)];
-    static int IndCache[MAXSTRANDS];
-    static void *indP=NULL;
-    static hash *expHash;
-    int d;
-
-    if (CacheInd==-1) { // We need to create a new hash
-      expHash=hash_new((unsigned int) MAXSTRANDS);
-    }
-
-    // Calculate key
-    memcpy((void*)key, (void *)&size,sizeof(int));
-    memcpy((void*)(key+sizeof(int)), (void *)&TEMP_K ,sizeof(DBL_TYPE));
-
-    // Search for key
-    indP=hash_get (expHash, key, keySize);
-    if (!indP){
-      CacheInd=nCaches++;
-      IndCache[CacheInd]=CacheInd;
-      hash_add(expHash, key, keySize, (void *)&IndCache[CacheInd]);
-
-      slCache[CacheInd]=(DBL_TYPE *)malloc(MAXSEQLENGTH*sizeof(DBL_TYPE));
-      TCache[CacheInd]=TEMP_K;
-      DBL_TYPE oldSizeEnergy, newSizeEnergy;
-      for (d=10;d<MAXSEQLENGTH;d++){
-        if( d <= 30) {
-          oldSizeEnergy = loop37[ d - 1];
-        }
-        else {
-          oldSizeEnergy = loop37[ 30 - 1];
-          oldSizeEnergy += sizeLog (d); //1.75*kB*TEMP_K*LOG_FUNC( size/30.0);
-        }
-
-        if( d - 2 <= 30) {
-          newSizeEnergy = loop37[ d-2 - 1];
-        }
-        else {
-          newSizeEnergy = loop37[ 30 - 1];
-          newSizeEnergy += sizeLog (d-2); //1.75*kB*TEMP_K*LOG_FUNC( (size-2)/30.0);
-        }
-
-        slCache[CacheInd][d]=EXP_FUNC( -(newSizeEnergy - oldSizeEnergy)/(kB*TEMP_K));
-      }
-      indP=hash_get (expHash, key, keySize);
-    }
-    CacheInd=*(int*)indP;
-    edc=slCache[CacheInd];
-    tc=TCache[CacheInd];
-  }
-
-  return edc[size];
-
+  */
 }
 
 
 /* ******* */
+DEV
 DBL_TYPE asymmetryEfn( int L1, int L2, int size) {
 
   int asymmetry_index;
@@ -886,10 +745,10 @@ DBL_TYPE asymmetryEfn( int L1, int L2, int size) {
 
   //Loop Size Energy
   if( size <= 30) {
-    energy = loop37[ size - 1];
+    energy = ENERGIES.loop37[ size - 1];
   }
   else {
-    energy = loop37[ 30 - 1];
+    energy = ENERGIES.loop37[ 30 - 1];
     energy += sizeLog(size);
   }
 
@@ -904,11 +763,11 @@ DBL_TYPE asymmetryEfn( int L1, int L2, int size) {
     asymmetry_index = L2;
   }
 
-  if( asymmetry*asymmetry_penalty[ asymmetry_index - 1] < max_asymmetry ) {
-    energy += asymmetry*asymmetry_penalty[ asymmetry_index - 1];
+  if( asymmetry*ENERGIES.asymmetry_penalty[ asymmetry_index - 1] < ENERGIES.max_asymmetry ) {
+    energy += asymmetry*ENERGIES.asymmetry_penalty[ asymmetry_index - 1];
   }
   else {
-    energy += max_asymmetry; // MAX asymmetry penalty
+    energy += ENERGIES.max_asymmetry; // MAX asymmetry penalty
   }
   return energy;
 }

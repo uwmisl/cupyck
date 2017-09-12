@@ -14,52 +14,8 @@
 
 #include "pfuncUtilsHeader.h" //contains functions and structures
 
-#include "DNAExternals.h"
 /* ********************************************** */
 //Added 08/21/2001
-
-int gap_index( int h, int r, int m, int s, int seqlength) {
-  // index variable should actually be h..h1..m1..m, but i will use
-  // the above indices for simplicity. 
-
-  int n = seqlength;
-  long int indexG;
-
-  long int h2 = h*h;
-  long int h3 = h2*h;
-  long int h4 = h3*h;
-  long int m2 = m*m;
-  long int n2= n*n;
-  long int n3 = n2*n;
-  long int r2 = r*r;
-  long int r3 = r2*r;
-
-  extern long int maxGapIndex;
-
-  if( h == r && m == s) { //new case for only 1 bp in gap matrix
-    return maxGapIndex - 1;
-  }
-
-  if( h >= r || r >= m || m >= s || s >= seqlength) {
-    fprintf(stderr, "Illegal call to Gap_index! %d, %d, %d, %d\n", h, r, m, s);
-    exit(1);
-  }
-
-  // the following indexing formula imitates 4 nested for loops
-  
-  indexG = (-24 - 50*h - 35*h2 - 10*h3 - h4 - 36*m -12*m2 +
-            12*n + 70*h*n + 30*h2*n + 4*h3*n + 24*m*n - 12*n2 -30*h*n2 -
-            6*h2*n2 + 4*h*n3 + 44*r - 48*n*r + 12*n2*r + 
-            24*r2 - 12*n*r2 +  4*r3 + 24*s)/24 ;
-
-  if( indexG >= maxGapIndex) {
-    fprintf(stderr, "Gap Index too large! %ld %ld %d %d %d %d %d\n", 
-           indexG, maxGapIndex,
-           h,r,m,s,n);
-    exit(1);
-  }
-  return indexG;
-}
 
 
 
@@ -219,6 +175,7 @@ int printSeqNum(int seqnum[]){
 }
 
 /* *********************************************************** */ 
+DEV
 int GetMismatchShift( int base1, int base2) {
   /* base1 and base2 are basepaired. the returned value is needed to 
   index energy arrays
@@ -253,6 +210,7 @@ int GetMismatchShift( int base1, int base2) {
 }
 
 /* ************************************************** */
+DEV
 int GetPairType( int b) { //assume pair of b is the watson crick pair
   int shift;
   
@@ -269,7 +227,7 @@ int GetPairType( int b) { //assume pair of b is the watson crick pair
     shift = 3;
   }
   else {
-    fprintf(stderr, "Error in GetPairType: %d!\n",b);
+    printf("Error in GetPairType: %d!\n",b);
     return -1;
   }
   return shift;
@@ -785,63 +743,6 @@ int checkSymmetry( const int *thepairs, int seqlength, const int *nicks, int pos
   }
 
   return sym;
-}
-
-/* ******************** */
-void findUniqueMins( dnaStructures *ds, const int *nicks, int symmetry, 
-                     int nStrands, DBL_TYPE minDev) {
-  dnaStructures newDs = {NULL, 0, 0, 0, NAD_INFINITY};
-  int i, j;
-  int unique;
-  int less_than;
-  int nSeqsPerUnit = nStrands/symmetry;
-  int unitLength = nicks[ nSeqsPerUnit-1] + 1;
-  DBL_TYPE minE = (ds->validStructs)[0].correctedEnergy;
-
-  newDs.validStructs = (oneDnaStruct*) malloc( (ds->nStructs)*sizeof(oneDnaStruct));
-  newDs.nAlloc = ds->nStructs;
-  newDs.seqlength = ds->seqlength;
-  newDs.minError = ds->minError;
-  newDs.nStructs = 0;
-
-  for( i = 0; i < ds->nStructs; i++) {
-    if( (ds->validStructs)[i].correctedEnergy > minE + ENERGY_TOLERANCE + minDev) break;
-    unique = TRUE;
-    less_than = -1;
-    if( symmetry != 1) {
-      j = 0;
-      while( j < newDs.nStructs && unique) {
-        
-        if( comparePairs( (ds->validStructs)[i].theStruct, newDs.validStructs[j].theStruct, 
-                         ds->seqlength, unitLength, symmetry) == 0) {
-          unique = FALSE;
-          if(compareDnaStructsOutput(&((ds->validStructs)[i]),&((newDs.validStructs)[j])) < 0) {
-            less_than = j;
-          } 
-        }
-        j++;
-      }
-    }
-    if( unique) {
-      newDs.validStructs[ newDs.nStructs].theStruct = (int*) malloc( sizeof( int)*(newDs.seqlength));
-      for( j = 0; j < newDs.seqlength; j++) newDs.validStructs[ newDs.nStructs].theStruct[j] =
-        ds->validStructs[i].theStruct[j];
-      newDs.validStructs[ newDs.nStructs].error = (ds->validStructs)[i].error;
-      newDs.validStructs[ newDs.nStructs].correctedEnergy = 
-        (ds->validStructs)[i].correctedEnergy;
-      newDs.nStructs++;
-    } 
-    if(less_than >= 0) {
-      for( j = 0 ; j < newDs.seqlength; j++) {
-        newDs.validStructs[less_than].theStruct[j] = ds->validStructs[i].theStruct[j];
-      }
-    }
-  }
-
-  qsort(newDs.validStructs, newDs.nStructs,sizeof(oneDnaStruct),&compareDnaStructsOutput);
-
-  copyDnaStructures( ds, &newDs);
-  clearDnaStructures( &newDs);
 }
 
 /* ********* */

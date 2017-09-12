@@ -6,53 +6,19 @@
   Useful constants for running partition function applications.
 */
 
-#ifdef __cplusplus
-extern "C" {
-#endif 
-
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
 #include "physical_constants.h"
 #include "runtime_constants.h"
-#ifdef GC_DEBUG
-
-#include "gc.h"
-#define malloc(n) GC_MALLOC(n)
-#define calloc(m,n) GC_MALLOC((m)*(n))
-#define free(p) GC_FREE(p)
-#define realloc(p,n) GC_REALLOC((p),(n))
-#define CHECK_LEAKS() GC_gcollect()
-#endif
-
-#ifdef DMALLOC
-#include "dmalloc.h"
-#endif
-
-#ifdef NEDMALLOC
-#include "nedmalloc.h"
-#endif
-
-
 
 //sets the type of floating point variables
-#ifdef USE_DOUBLE
-
 #define DBL_TYPE double
 #define EXP_FUNC exp
 #define LOG_FUNC log
 
-#else
-
-#define DBL_TYPE long double
-#define EXP_FUNC expl
-#define LOG_FUNC logl
-
-#endif
-
 //Minimum difference between energies before two are considered identical
 #define ENERGY_TOLERANCE 0.0001
-
 
 //max error in the bits of precision.  Used during pair probability
 //calculations (where subtraction occurs) Setting this to zero can
@@ -60,10 +26,10 @@ extern "C" {
 #define MAXPRECERR 24 //max error in bits of precision
 
 //Maximum seqeuence length
-#define MAXSEQLENGTH 10000
+#define MAXSEQLENGTH 1000
 
 //maximum # of strands in a complex
-#define MAXSTRANDS 2000
+#define MAXSTRANDS 100
  
 //MATCH_PF will make the energy model used in energy calculations
 //match the one used in mfe and partition function calculations.
@@ -117,6 +83,4 @@ extern "C" {
 
 #endif
 
-#ifdef __cplusplus
-}
-#endif 
+
