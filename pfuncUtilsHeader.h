@@ -285,7 +285,7 @@ void manageFgIx( DBL_TYPE **FgIx, DBL_TYPE **FgIx_1,
                                  int useLongHelix);
 
 //Load energy parameters.  Global variable DNARNACOUNT determines parameter set
-void LoadEnergies(energy_model_t *energy_model);
+void LoadEnergies(energy_model_t *energy_model, DBL_TYPE temp_k);
 void setParametersToZero(energy_model_t *energy_model);
 
 //Set Q[ pf_index(i, i-1, seqlength)] = 1;

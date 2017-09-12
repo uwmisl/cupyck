@@ -265,7 +265,7 @@ DBL_TYPE computeSaltCorrection(DBL_TYPE sodiumConc, DBL_TYPE magnesiumConc,
 
 
 /* ************************************** */
-void LoadEnergies(energy_model_t *em) {
+void LoadEnergies(energy_model_t *em, DBL_TYPE temp_k) {
   
   const char *default_param_files[] = { "dna1998", "rna1995", "rna1999"};
   
@@ -323,33 +323,8 @@ void LoadEnergies(energy_model_t *em) {
   char *nupackhome = NULL;
   char fileNameRoot[300] = "\0";
   
-  static DBL_TYPE temp = 0;
-  static int energySet = FALSE;
-  static int params = -1;
-  static int dtype = -1;
   static char parameterFileName[300] = "\0";
   
-
-  /*
-  //check if invalid temperature and parameters are used
-  if( DNARNACOUNT == RNA37 && TEMP_K != 310.15) {
-  printf("The rna1999 RNA parameters can only be used at 37 C.  Please try again!");
-  exit(1);
-  }
-  */
-  
-  //check if parameters have been loaded (or have changed)
-  if( temp != TEMP_K || temp == 0 || params != DNARNACOUNT || 
-     (params == USE_SPECIFIED_PARAMETERS_FILE && strcmp( parameterFileName, PARAM_FILE) != 0) 
-     || dtype != DANGLETYPE ) {
-       energySet = FALSE;
-       temp = TEMP_K;
-       params = DNARNACOUNT;
-       dtype = DANGLETYPE;
-     }
-  
-  if( energySet == TRUE) return; //only load energy once
-  energySet = TRUE;
 
   if( DNARNACOUNT == COUNT) {
     setParametersToZero(em);
@@ -357,7 +332,7 @@ void LoadEnergies(energy_model_t *em) {
   }
   
   // Get density of water
-  water_conc = (DBL_TYPE) WaterDensity(TEMP_K - ZERO_C_IN_KELVIN);
+  water_conc = (DBL_TYPE) WaterDensity(temp_k - ZERO_C_IN_KELVIN);
 
   // Compute the salt correction
   em->salt_correction = computeSaltCorrection(
@@ -469,7 +444,7 @@ void LoadEnergies(energy_model_t *em) {
       }
       else {
         em->loop37[30*(2-i)+j] = G_loop37[30*(2-i)+j] = G_loop37[30*(2-i)+nRead-1]+
-          1.75*kB*TEMP_K*LOG_FUNC( (j+1)/(1.0*nRead));
+          1.75*kB*temp_k*LOG_FUNC( (j+1)/(1.0*nRead));
       }
     }
     
@@ -906,7 +881,7 @@ void LoadEnergies(energy_model_t *em) {
   }
   
   G_BIMOLECULAR = (DBL_TYPE) array[0]/100.0;
-  em->bimolecular = G_BIMOLECULAR - kB*TEMP_K*LOG_FUNC( water_conc);
+  em->bimolecular = G_BIMOLECULAR - kB*temp_k*LOG_FUNC( water_conc);
   
   fclose( fp);
   
@@ -915,7 +890,7 @@ void LoadEnergies(energy_model_t *em) {
   
   //If Temperature == 37 C, add the salt correction andskip he dH file.
   //  Else, make sure it is present
-  if( TEMP_K > 37.0 + ZERO_C_IN_KELVIN - 0.001 && TEMP_K < 37.0 + ZERO_C_IN_KELVIN + 0.001) {
+  if( temp_k > 37.0 + ZERO_C_IN_KELVIN - 0.001 && temp_k < 37.0 + ZERO_C_IN_KELVIN + 0.001) {
 
     // Make the salt corrections
     // Stacked bases
@@ -965,7 +940,7 @@ void LoadEnergies(energy_model_t *em) {
       fprintf(stderr, "Unable to find %s.dH locally, and NUPACKHOME environment variable is not set.\n",
              fileNameRoot);
       fprintf(stderr, "Consequently, your temperature must be set to 37.0 C, not %.1f.  Job Aborted.\n", 
-             (float) (TEMP_K - ZERO_C_IN_KELVIN));
+             (float) (temp_k - ZERO_C_IN_KELVIN));
       exit(1);
     }
   }
@@ -974,7 +949,7 @@ void LoadEnergies(energy_model_t *em) {
     fprintf(stderr, "Unable to find file %s.dH locally or in NUPACKHOME = %s\n", fileNameRoot,
            nupackhome);
     fprintf(stderr, "Consequently, your temperature must be set to 37.0 C, not %.1f.  Job Aborted.\n",
-           (float) (TEMP_K - ZERO_C_IN_KELVIN) );
+           (float) (temp_k - ZERO_C_IN_KELVIN) );
     exit(1);
   }
   
@@ -1008,7 +983,7 @@ void LoadEnergies(energy_model_t *em) {
     }
     for( j = 0; j < 6; j++) {
       H_Stack[i*6+j] = (DBL_TYPE) array[j]/100.0;
-      em->Stack[i*6+j] = (G_Stack[i*6+j] - H_Stack[i*6+j])*TEMP_K/310.15
+      em->Stack[i*6+j] = (G_Stack[i*6+j] - H_Stack[i*6+j])*temp_k/310.15
         + H_Stack[i*6+j];
     }
     
@@ -1039,11 +1014,11 @@ void LoadEnergies(energy_model_t *em) {
       }
       else {
         H_loop37[30*(2-i)+j] = H_loop37[30*(2-i)+nRead-1]+
-          1.75*kB*TEMP_K*LOG_FUNC( (j+1)/(1.0*nRead));
+          1.75*kB*temp_k*LOG_FUNC( (j+1)/(1.0*nRead));
       }
       
       em->loop37[30*(2-i)+j] = (G_loop37[30*(2-i)+j] - H_loop37[30*(2-i)+j])*
-        TEMP_K/310.15 + H_loop37[30*(2-i)+j];
+        temp_k/310.15 + H_loop37[30*(2-i)+j];
     }
     
     fgets( line, MAXLINE, fp);
@@ -1071,11 +1046,11 @@ void LoadEnergies(energy_model_t *em) {
     H_asymmetry_penalty[j] = (DBL_TYPE) array[j]/100.0;
     em->asymmetry_penalty[j] = (G_asymmetry_penalty[j] - 
                             H_asymmetry_penalty[j])*
-      TEMP_K/310.15 + H_asymmetry_penalty[j];
+      temp_k/310.15 + H_asymmetry_penalty[j];
   }
   H_max_asymmetry = (DBL_TYPE) array[4]/100.0;
   em->max_asymmetry = (G_max_asymmetry - 
-                   H_max_asymmetry)* TEMP_K/310.15 + H_max_asymmetry;
+                   H_max_asymmetry)* temp_k/310.15 + H_max_asymmetry;
   
   
   //Triloops
@@ -1086,7 +1061,7 @@ void LoadEnergies(energy_model_t *em) {
   for( i = 0; i < 2048; i++) {
     H_triloop_energy[i] = 0;
     em->triloop_energy[i] = (G_triloop_energy[i] - 
-                         H_triloop_energy[i])* TEMP_K/310.15 + 
+                         H_triloop_energy[i])* temp_k/310.15 + 
       H_triloop_energy[i];
   }
   while( line[0] != '>') {
@@ -1113,7 +1088,7 @@ void LoadEnergies(energy_model_t *em) {
       }
       H_triloop_energy[ indexL] = (DBL_TYPE) array[0]/100.0;
       em->triloop_energy[indexL] = (G_triloop_energy[indexL] - 
-                                H_triloop_energy[indexL])* TEMP_K/310.15 + 
+                                H_triloop_energy[indexL])* temp_k/310.15 + 
         H_triloop_energy[indexL];
     }
     else {
@@ -1129,9 +1104,9 @@ void LoadEnergies(energy_model_t *em) {
   for( i = 0; i < 4096; i++) {
     H_tloop_energy[i] = 0;
     em->tloop_energy[i] = (G_tloop_energy[i] - 
-                       H_tloop_energy[i])* TEMP_K/310.15 + 
+                       H_tloop_energy[i])* temp_k/310.15 + 
       H_tloop_energy[i];
-    //printf("%f ", TEMP_K);
+    //printf("%f ", temp_k);
   }
   while( line[0] != '>') {
     
@@ -1158,7 +1133,7 @@ void LoadEnergies(energy_model_t *em) {
       
       H_tloop_energy[ indexL] = (DBL_TYPE) array[0]/100.0;
       em->tloop_energy[indexL] = (G_tloop_energy[indexL] - 
-                              H_tloop_energy[indexL])* TEMP_K/310.15 + 
+                              H_tloop_energy[indexL])* temp_k/310.15 + 
         H_tloop_energy[indexL];
     }
     else {
@@ -1191,7 +1166,7 @@ void LoadEnergies(energy_model_t *em) {
     for( j = 0; j < 6; j++) {
       H_MMEnergiesHP[ 6*i + j] = (DBL_TYPE) array[j]/100.0;
       em->MMEnergiesHP[6*i+j] = (G_MMEnergiesHP[6*i+j] - 
-                             H_MMEnergiesHP[6*i+j])* TEMP_K/310.15 + 
+                             H_MMEnergiesHP[6*i+j])* temp_k/310.15 + 
         H_MMEnergiesHP[6*i+j];
     }
     
@@ -1222,7 +1197,7 @@ void LoadEnergies(energy_model_t *em) {
     for( j = 0; j < 6; j++) {
       H_MMEnergiesIL[ 6*i + j] = (DBL_TYPE) array[j]/100.0;
       em->MMEnergiesIL[6*i+j] = (G_MMEnergiesIL[6*i+j] - 
-                             H_MMEnergiesIL[6*i+j])* TEMP_K/310.15 + 
+                             H_MMEnergiesIL[6*i+j])* temp_k/310.15 + 
         H_MMEnergiesIL[6*i+j];
     }
     
@@ -1253,7 +1228,7 @@ void LoadEnergies(energy_model_t *em) {
       if( DANGLETYPE == 0) H_dangle_energy[i*4+j] = 0;
       
       em->dangle_energy[i*4+j] = (G_dangle_energy[i*4+j] - 
-                              H_dangle_energy[i*4+j])* TEMP_K/310.15 + 
+                              H_dangle_energy[i*4+j])* temp_k/310.15 + 
         H_dangle_energy[i*4+j];
     }
     
@@ -1285,7 +1260,7 @@ void LoadEnergies(energy_model_t *em) {
         H_dangle_energy[24+ i*4+j] = 0;
       
       em->dangle_energy[24+i*4+j] = (G_dangle_energy[24+i*4+j] - 
-                                 H_dangle_energy[24+i*4+j])* TEMP_K/310.15 + 
+                                 H_dangle_energy[24+i*4+j])* temp_k/310.15 + 
         H_dangle_energy[24+i*4+j];
       
     }
@@ -1317,11 +1292,11 @@ void LoadEnergies(energy_model_t *em) {
   H_ALPHA_2 = (DBL_TYPE) array[1]/100.0;
   H_ALPHA_3 = (DBL_TYPE) array[2]/100.0;
   
-  em->alpha_1 = (G_ALPHA_1 - H_ALPHA_1)* TEMP_K/310.15 + 
+  em->alpha_1 = (G_ALPHA_1 - H_ALPHA_1)* temp_k/310.15 + 
     H_ALPHA_1;
-  em->alpha_2 = (G_ALPHA_2 - H_ALPHA_2)* TEMP_K/310.15 + 
+  em->alpha_2 = (G_ALPHA_2 - H_ALPHA_2)* temp_k/310.15 + 
     H_ALPHA_2;
-  em->alpha_3 = (G_ALPHA_3 - H_ALPHA_3)* TEMP_K/310.15 + 
+  em->alpha_3 = (G_ALPHA_3 - H_ALPHA_3)* temp_k/310.15 + 
     H_ALPHA_3;
   
   
@@ -1333,7 +1308,7 @@ void LoadEnergies(energy_model_t *em) {
   //AT PENALTY
   if( sscanf(line, "%d", &(array[0]) ) == 1) {
     H_AT_PENALTY = (DBL_TYPE) array[0]/100.0;
-    em->at_penalty = (G_AT_PENALTY - H_AT_PENALTY)* TEMP_K/310.15 + 
+    em->at_penalty = (G_AT_PENALTY - H_AT_PENALTY)* temp_k/310.15 + 
       H_AT_PENALTY;
     
   }
@@ -1370,7 +1345,7 @@ void LoadEnergies(energy_model_t *em) {
       for( k = 0; k < 4; k++) {
         H_IL_SInt2[ i*16 + j*4 + k] = (DBL_TYPE) array[ k]/100.0;
         em->IL_SInt2[i*16+j*4+k] = (G_IL_SInt2[i*16+j*4+k] - 
-                                H_IL_SInt2[i*16+j*4+k])* TEMP_K/310.15 + 
+                                H_IL_SInt2[i*16+j*4+k])* temp_k/310.15 + 
           H_IL_SInt2[i*16+j*4+k];
         
       }
@@ -1411,7 +1386,7 @@ void LoadEnergies(energy_model_t *em) {
           (DBL_TYPE) array[ k]/100.0;
         em->IL_SInt4[index4] = 
           (G_IL_SInt4[index4] - 
-           H_IL_SInt4[index4])* TEMP_K/310.15 + 
+           H_IL_SInt4[index4])* temp_k/310.15 + 
           H_IL_SInt4[index4];
         
       }
@@ -1450,7 +1425,7 @@ void LoadEnergies(energy_model_t *em) {
         H_IL_AsInt1x2[index4] = (DBL_TYPE) array[ k]/100.0;
         em->IL_AsInt1x2[index4] = 
           (G_IL_AsInt1x2[index4] - 
-           H_IL_AsInt1x2[index4])* TEMP_K/310.15 + 
+           H_IL_AsInt1x2[index4])* temp_k/310.15 + 
           H_IL_AsInt1x2[index4];
       }
       
@@ -1482,11 +1457,11 @@ void LoadEnergies(energy_model_t *em) {
   H_POLYCSLOPE = (DBL_TYPE) array[1]/100.0;
   H_POLYCINT = (DBL_TYPE) array[2]/100.0;
   
-  em->polyc3 = (G_POLYC3 - H_POLYC3)* TEMP_K/310.15 + 
+  em->polyc3 = (G_POLYC3 - H_POLYC3)* temp_k/310.15 + 
     H_POLYC3;
-  em->polycslope = (G_POLYCSLOPE - H_POLYCSLOPE)* TEMP_K/310.15 + 
+  em->polycslope = (G_POLYCSLOPE - H_POLYCSLOPE)* temp_k/310.15 + 
     H_POLYCSLOPE;
-  em->polycint = (G_POLYCINT - H_POLYCINT)* TEMP_K/310.15 + H_POLYCINT;
+  em->polycint = (G_POLYCINT - H_POLYCINT)* temp_k/310.15 + H_POLYCINT;
   
   
   fgets( line, MAXLINE, fp);
@@ -1516,15 +1491,15 @@ void LoadEnergies(energy_model_t *em) {
   H_BETA_1M = (DBL_TYPE) array[3]/100.0;
   H_BETA_1P = (DBL_TYPE) array[4]/100.0;
   
-  em->beta_1 = (G_BETA_1 - H_BETA_1)* TEMP_K/310.15 + 
+  em->beta_1 = (G_BETA_1 - H_BETA_1)* temp_k/310.15 + 
     H_BETA_1;
-  em->beta_2 = (G_BETA_2 - H_BETA_2)* TEMP_K/310.15 + 
+  em->beta_2 = (G_BETA_2 - H_BETA_2)* temp_k/310.15 + 
     H_BETA_2;
-  em->beta_3 = (G_BETA_3 - H_BETA_3)* TEMP_K/310.15 + 
+  em->beta_3 = (G_BETA_3 - H_BETA_3)* temp_k/310.15 + 
     H_BETA_3;
-  em->beta_1m = (G_BETA_1M - H_BETA_1M)* TEMP_K/310.15 + 
+  em->beta_1m = (G_BETA_1M - H_BETA_1M)* temp_k/310.15 + 
     H_BETA_1M;
-  em->beta_1p = (G_BETA_1P - H_BETA_1P)* TEMP_K/310.15 + 
+  em->beta_1p = (G_BETA_1P - H_BETA_1P)* temp_k/310.15 + 
     H_BETA_1P;
   
   fgets( line, MAXLINE, fp);
@@ -1550,8 +1525,8 @@ void LoadEnergies(energy_model_t *em) {
   
   H_BIMOLECULAR = (DBL_TYPE) array[0]/100.0;
   
-  em->bimolecular = (G_BIMOLECULAR - H_BIMOLECULAR)* TEMP_K/310.15 + 
-    H_BIMOLECULAR - kB*TEMP_K*LOG_FUNC( water_conc);
+  em->bimolecular = (G_BIMOLECULAR - H_BIMOLECULAR)* temp_k/310.15 + 
+    H_BIMOLECULAR - kB*temp_k*LOG_FUNC( water_conc);
   
   fclose( fp);
 

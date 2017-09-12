@@ -99,7 +99,7 @@ int main( int argc, char *argv[] ) {
   energy_model.temp_k = TEMP_K;
   energy_model.dangletype = DANGLETYPE;
   energy_model.dnarnacount = DNARNACOUNT;
-  LoadEnergies(&energy_model);
+  LoadEnergies(&energy_model, TEMP_K);
 
   cudaMemcpyToSymbol(ENERGIES, &energy_model, sizeof(energy_model_t));
 
