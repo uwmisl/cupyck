@@ -252,7 +252,6 @@ extern "C" void pfuncInitialize(int nblocks_in, DBL_TYPE temp_k,
   USE_LONG_HELIX_FOR_SALT_CORRECTION = long_helix;
   DANGLETYPE = dangletype;
   DNARNACOUNT = dnarnacount;
-  TEMP_K = temp_k;
 
   // Load Energy Model
   energy_model_t em;

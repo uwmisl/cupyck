@@ -235,7 +235,7 @@ void manageQx( DBL_TYPE **Qx, DBL_TYPE **Qx_1, DBL_TYPE **Qx_2, int len, int seq
 
 /* ************************************** */
 DBL_TYPE computeSaltCorrection(DBL_TYPE sodiumConc, DBL_TYPE magnesiumConc,
-			       int useLongHelix) {
+			       int useLongHelix, DBL_TYPE temp_k) {
 
   // No correction for RNA since we don't have parameters
   if (DNARNACOUNT != DNA || (sodiumConc == 1.0 && magnesiumConc == 0.0)) { 
@@ -244,10 +244,10 @@ DBL_TYPE computeSaltCorrection(DBL_TYPE sodiumConc, DBL_TYPE magnesiumConc,
 
   // Ignore magnesium for long helix mode (not cited why, for consistency with Mfold)
   if (useLongHelix) { 
-    return -(0.2 + 0.175*log(sodiumConc)) * TEMP_K / 310.15;
+    return -(0.2 + 0.175*log(sodiumConc)) * temp_k / 310.15;
   }
 
-  return -0.114*log(sodiumConc + 3.3*sqrt(magnesiumConc)) * TEMP_K / 310.15;
+  return -0.114*log(sodiumConc + 3.3*sqrt(magnesiumConc)) * temp_k / 310.15;
 }
 
 
@@ -328,7 +328,7 @@ void LoadEnergies(energy_model_t *em, DBL_TYPE temp_k) {
   // Compute the salt correction
   em->salt_correction = computeSaltCorrection(
       SODIUM_CONC, MAGNESIUM_CONC,
-      USE_LONG_HELIX_FOR_SALT_CORRECTION);
+      USE_LONG_HELIX_FOR_SALT_CORRECTION, temp_k);
   
   
   //Parameter file input.  If a path was given as a command line parameter,
