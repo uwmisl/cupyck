@@ -16,14 +16,6 @@
 #include "pfuncUtilsHeader.h"
 #include "DNAExternals.h"
 
-DEV void* m_calloc(size_t num, size_t size)  {
-  char *arr = (char *)malloc(num * size);
-  for(int i = 0; i < num*size; ++i) {
-    arr[i] = 0;
-  }
-  return (void *)arr;
-}
-
 /* ************************************************* */
 void ReadSequence( int *seqlength, char **seq, char filename[ MAXLINE] ) {
   FILE *fp;
@@ -193,7 +185,8 @@ void processMultiSequence( int inputSeq[], int seqlength, int nStrands,
 DEV
 void InitLDoublesMatrix( DBL_TYPE **Q, int size, char name[]) {
   // Allocate cleared memory for a DBL_TYPEs matrix.
-  *Q =  (DBL_TYPE *) m_calloc( size, sizeof( DBL_TYPE));
+  *Q =  (DBL_TYPE *) malloc( size * sizeof( DBL_TYPE));
+  memset(*Q, 0, size * sizeof(DBL_TYPE));
   if( *Q == NULL) {
     printf("InitLDoublesMatrix: unable to allocate %lu bytes for %s!\n", size * sizeof( DBL_TYPE),  name);
     assert(0);

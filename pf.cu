@@ -36,7 +36,6 @@ int IsProcessorInUse(int rank, int L, int seqLen, int numCPUs ) {
     return (getNodesFirstEntry(L,rank,seqLen,numCPUs) != seqLen - L + 1);
 }
 
-extern DEV void* m_calloc(size_t num, size_t size);
 GLB
 void pfuncFullWithSymHelper(DBL_TYPE *pf, int inputSeq[], int seqlength, 
     int nStrands, int permSymmetry) {
@@ -47,7 +46,7 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int inputSeq[], int seqlength,
 
   __shared__ int *seq;
   if(threadIdx.x == 0) {
-    seq = (int*)m_calloc(seqlength + 1, sizeof(int));
+    seq = (int*)malloc((seqlength + 1) * sizeof(int));
   }
 
   __shared__ DBL_TYPE *Q;
