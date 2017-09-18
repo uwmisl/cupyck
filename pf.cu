@@ -37,9 +37,13 @@ int IsProcessorInUse(int rank, int L, int seqLen, int numCPUs ) {
 }
 
 GLB
-void pfuncFullWithSymHelper(DBL_TYPE *pf, int inputSeq[], int seqlength, 
-    int nStrands, int permSymmetry) {
+void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
+    int * nStrands_arr, int * permSymmetries) {
 
+  int * inputSeq = inputSeqs[blockIdx.x];
+  int seqlength = seqlengths[blockIdx.x];
+  int nStrands = nStrands_arr[blockIdx.x];
+  int permSymmetry = permSymmetries[blockIdx.x];
   //complexity: 3 = N^3, 4 = N^4, 5 = N^5, 8 = N^8
   //naType: DNA = 0, RNA = 1
   //dangles: 0 = none, 1 = normal, 2 = add both
@@ -214,15 +218,33 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int inputSeq[], int seqlength,
     }
 
     free( etaN);
-    *pf = returnValue;
+    pf[blockIdx.x] = returnValue;
   }
 }
 /* ****** */
 //void pfuncInitialize(DBL_TYPE temp_lo, DBL_TYPE temp_hi, DBL_TYPE temp_step,
-extern "C" void pfuncInitialize(DBL_TYPE temp_k,
+
+DBL_TYPE * pf;
+int ** intSeqs;
+int * seqlengths;
+int * nStrands_arr;
+int * permSymmetries;
+int nblocks;
+
+#define cudaCheck(call) {\
+  cudaError_t e = (call); \
+  if(e != cudaSuccess) {\
+    fprintf(stderr, #call ": %s", cudaGetErrorString(e)); \
+    abort(); \
+  }\
+}\
+
+
+extern "C" void pfuncInitialize(int nblocks_in, DBL_TYPE temp_k,
     DBL_TYPE sodium_conc, DBL_TYPE magnesium_conc,
     int long_helix, int dangletype, int dnarnacount) {
 
+  nblocks = nblocks_in;
   SODIUM_CONC = sodium_conc;
   MAGNESIUM_CONC = magnesium_conc;
   USE_LONG_HELIX_FOR_SALT_CORRECTION = long_helix;
@@ -233,34 +255,51 @@ extern "C" void pfuncInitialize(DBL_TYPE temp_k,
   energy_model_t energies;
   LoadEnergies(&energies, temp_k);
   cudaMemcpyToSymbol(ENERGIES, &energies, sizeof(energy_model_t));
+
+  cudaCheck(
+    cudaMallocManaged(&pf, nblocks * sizeof(DBL_TYPE))
+  );
+  cudaCheck(
+    cudaMallocManaged(&seqlengths, nblocks * sizeof(int))
+  );
+  cudaCheck(
+    cudaMallocManaged(&nStrands_arr, nblocks * sizeof(int))
+  );
+  cudaCheck(
+    cudaMallocManaged(&permSymmetries, nblocks * sizeof(int))
+  );
+  cudaCheck(
+    cudaMallocManaged(&intSeqs, nblocks * sizeof(int*))
+  );
+
+  for(int i = 0; i < nblocks; ++i) {
+    cudaCheck(
+      cudaMallocManaged(&(intSeqs[i]), (MAXSEQLENGTH + 1) * sizeof(int))
+    );
+  }
+  cudaCheck(
+    cudaDeviceSetLimit(cudaLimitMallocHeapSize, 1 << 30)
+  );
 }
 
-// This is the main function for computing partition functions.
-DBL_TYPE pfuncFullWithSym(int inputSeq[], int permSymmetry) {
-  int nStrands;
-  int seqlength=getSequenceLengthInt (inputSeq, &nStrands);
-  DBL_TYPE *pf;
+extern "C" void pfuncMulti(char ** inputSeqs, int nseqs, int * permSym, DBL_TYPE
+    * result) {
 
-  int * iseq;
-  cudaMallocManaged(&iseq, sizeof(int) * (seqlength + 1));
-  memcpy(iseq, inputSeq, sizeof(int) * (seqlength + 1));
+  for (int s = 0; s < nseqs; s += nblocks) {
+    for(int i = 0; i < nblocks; ++i) {
+      int len = strlen(inputSeqs[s + i]);
+      convertSeq(inputSeqs[s + i], intSeqs[i], len);
+      seqlengths[i] = getSequenceLengthInt(intSeqs[i], nStrands_arr + i);
+      permSymmetries[i] = permSym[s + i];
+    }
 
-  int nblocks = 1;
-  int nperblock = 256;
-  int nthreads = nblocks * nperblock;
+    pfuncFullWithSymHelper<<<nblocks, 256>>>(
+        pf, intSeqs, seqlengths, nStrands_arr, permSymmetries
+    );
+    cudaDeviceSynchronize();
 
-  cudaMallocManaged(&pf, sizeof(DBL_TYPE));
-
-  cudaDeviceSetLimit(cudaLimitMallocHeapSize, 1 << 30);
-  size_t hp;
-  cudaDeviceGetLimit(&hp, cudaLimitMallocHeapSize);
-  printf("heap size %lu confirmed\n", hp);
-
-  pfuncFullWithSymHelper<<<nblocks,nperblock>>>(pf, iseq, seqlength, nStrands, permSymmetry);
-  cudaDeviceSynchronize();
-
-  return *pf;
+    for(int i = 0; i < nblocks; ++i) {
+      result[s + i] = pf[i];
+    }
+  }
 }
-
-
-

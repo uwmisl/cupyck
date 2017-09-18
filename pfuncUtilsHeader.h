@@ -109,13 +109,10 @@ DBL_TYPE pfuncFull( int inputSeq[], int complexity, int naType, int dangles,
                     DBL_TYPE temperature, int calcPairs,
                     DBL_TYPE sodiumconc, DBL_TYPE magnesiumconc, int uselongsalt);
 
-//pfuncFullWithSym is the Same as pfuncFull, but divides
-//the result by permSym to account for symmetries
-extern "C" DBL_TYPE pfuncFullWithSym(int inputSeq[],  int permSymmetry);
 
 GLB
-void pfuncFullWithSymHelper(DBL_TYPE *pf, int inputSeq[], int seqlength, int nStrands,
-                                 int permSymmetry);
+void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
+    int * nStrands, int * permSymmetries);
 
 
 /* pfunc
