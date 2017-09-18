@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <assert.h>
 
 #include "pfuncUtilsHeader.h" //contains functions and structures
 #include "DNAExternals.h"
@@ -37,15 +38,26 @@ int IsProcessorInUse(int rank, int L, int seqLen, int numCPUs ) {
 }
 
 __constant__ energy_model_t *energies;
+__constant__ DBL_TYPE t_lo;
+__constant__ DBL_TYPE t_hi;
+__constant__ DBL_TYPE t_step;
+DEV
+energy_model_t* get_energy_model(DBL_TYPE temp_k) {
+  assert(t_lo <= temp_k && temp_k <= t_hi);
+  int index = round((temp_k - t_lo) / t_step);
+  return energies + index;
+}
 
 GLB
 void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
-    int * nStrands_arr, int * permSymmetries) {
+    int * nStrands_arr, int * permSymmetries, DBL_TYPE * temps) {
 
   int * inputSeq = inputSeqs[blockIdx.x];
   int seqlength = seqlengths[blockIdx.x];
   int nStrands = nStrands_arr[blockIdx.x];
   int permSymmetry = permSymmetries[blockIdx.x];
+  energy_model_t *em = get_energy_model(temps[blockIdx.x]);
+
   //complexity: 3 = N^3, 4 = N^4, 5 = N^5, 8 = N^8
   //naType: DNA = 0, RNA = 1
   //dangles: 0 = none, 1 = normal, 2 = add both
@@ -115,7 +127,7 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
       etaN[i] = etaN_space + (2 * i);
     }
     InitEtaN( etaN, nicks, seqlength);
-    nonZeroInit( Q, seq, seqlength, energies);
+    nonZeroInit( Q, seq, seqlength, em);
 
     InitLDoublesMatrix( &Qs, arraySize, "Qs");
     InitLDoublesMatrix( &Qms, arraySize, "Qms");
@@ -154,7 +166,7 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
         Qb[ pf_ij] = 0.0; //scaling still gives 0
       }
       else {
-        Qb[ pf_ij] = ExplHairpin( i, j, seq, seqlength, etaN, energies);
+        Qb[ pf_ij] = ExplHairpin( i, j, seq, seqlength, etaN, em);
 
         //no nicked haripins allowed in previous function
         if( etaN[ EtaNIndex(i+0.5, i+0.5, seqlength)][0] == 0 &&
@@ -162,26 +174,26 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
              //regular multiloop.  No top-level nicks
              
               Qb[ pf_ij] += SumExpMultiloops(i, j, seq, Qms, Qm,
-                                            seqlength, etaN, energies);
+                                            seqlength, etaN, em);
         }
 
         if( etaN[ EtaNIndex(i+0.5, j-0.5, seqlength)][0] >= 1) {
           //Exterior loop (created by nick)
           Qb[ pf_ij] += SumExpExteriorLoop( i, j, seq, seqlength, 
-                                           Q, nicks, etaN, energies); 
+                                           Q, nicks, etaN, em); 
         }
 
       }
 
-      fastILoops( i, j, L, seqlength, seq, etaN, Qb, Qx, Qx_2, energies);
+      fastILoops( i, j, L, seqlength, seq, etaN, Qb, Qx, Qx_2, em);
 
 
       /* Recursions for Qms, Qs */
-      MakeQs_Qms( i, j, seq, seqlength, Qs, Qms, Qb, nicks, etaN, energies);
+      MakeQs_Qms( i, j, seq, seqlength, Qs, Qms, Qb, nicks, etaN, em);
       
       /* Recursions for Q, Qm, Qz */
       MakeQ_Qm_N3( i, j, seq, seqlength, Q, Qs, Qms, Qm,
-                  nicks,etaN, energies);
+                  nicks,etaN, em);
 
 
     }
@@ -191,8 +203,8 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
   //adjust this for nStrands, symmetry at rank == 0 node
   if (threadIdx.x == 0) {
     returnValue = EXP_FUNC(
-        -1*(energies->bimolecular + energies->salt_correction)*(nStrands-1)/
-        (kB*energies->temp_k)
+        -1*(em->bimolecular + em->salt_correction)*(nStrands-1)/
+        (kB*em->temp_k)
       ) * Q[ pf_index(0,seqlength-1, seqlength)]/((DBL_TYPE) permSymmetry);
 
     free( Q);
@@ -224,13 +236,13 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
   }
 }
 /* ****** */
-//void pfuncInitialize(DBL_TYPE temp_lo, DBL_TYPE temp_hi, DBL_TYPE temp_step,
 
 DBL_TYPE * pf;
 int ** intSeqs;
 int * seqlengths;
 int * nStrands_arr;
 int * permSymmetries;
+DBL_TYPE * temps;
 int nblocks;
 
 #define cudaCheck(call) {\
@@ -242,7 +254,9 @@ int nblocks;
 }\
 
 
-extern "C" void pfuncInitialize(int nblocks_in, DBL_TYPE temp_k,
+extern "C" void pfuncInitialize(
+    int nblocks_in,
+    DBL_TYPE temp_lo, DBL_TYPE temp_hi, DBL_TYPE temp_step,
     DBL_TYPE sodium_conc, DBL_TYPE magnesium_conc,
     int long_helix, int dangletype, int dnarnacount) {
 
@@ -253,19 +267,27 @@ extern "C" void pfuncInitialize(int nblocks_in, DBL_TYPE temp_k,
   DANGLETYPE = dangletype;
   DNARNACOUNT = dnarnacount;
 
-  // Load Energy Model
-  energy_model_t em;
-  LoadEnergies(&em, temp_k);
-
-  // Allocate Device Memory
+  // Load Energy Models
+  int ntemps = ceil((temp_hi - temp_lo) / temp_step) + 1;
+  temp_lo += ZERO_C_IN_KELVIN;
+  temp_hi += ZERO_C_IN_KELVIN;
+  energy_model_t *em;
+  em = (energy_model_t*)malloc(ntemps * sizeof(energy_model_t));
+  DBL_TYPE temp_k = temp_lo;
+  for(int i = 0; i < ntemps; ++i) {
+    LoadEnergies(em + i, temp_k);
+    temp_k += temp_step;
+  }
+  // Allocate device memory and copy
   energy_model_t *em_d;
-  cudaMalloc(&em_d, sizeof(energy_model_t));
-  cudaMemcpy(em_d, &em, sizeof(energy_model_t), cudaMemcpyHostToDevice);
+  cudaMalloc(&em_d, ntemps * sizeof(energy_model_t));
+  cudaMemcpy(em_d, em, ntemps * sizeof(energy_model_t), cudaMemcpyHostToDevice);
 
-  // Send Device Ptr to Device
+  // Set device constants
   cudaMemcpyToSymbol(energies, &em_d, sizeof(energy_model_t*));
-
-  //cudaMemcpyToSymbol(ENERGIES, &energies, sizeof(energy_model_t));
+  cudaMemcpyToSymbol(t_hi, &temp_hi, sizeof(DBL_TYPE));
+  cudaMemcpyToSymbol(t_lo, &temp_lo, sizeof(DBL_TYPE));
+  cudaMemcpyToSymbol(t_step, &temp_step, sizeof(DBL_TYPE));
 
   cudaCheck(
     cudaMallocManaged(&pf, nblocks * sizeof(DBL_TYPE))
@@ -278,6 +300,9 @@ extern "C" void pfuncInitialize(int nblocks_in, DBL_TYPE temp_k,
   );
   cudaCheck(
     cudaMallocManaged(&permSymmetries, nblocks * sizeof(int))
+  );
+  cudaCheck(
+    cudaMallocManaged(&temps, nblocks * sizeof(DBL_TYPE))
   );
   cudaCheck(
     cudaMallocManaged(&intSeqs, nblocks * sizeof(int*))
@@ -293,8 +318,8 @@ extern "C" void pfuncInitialize(int nblocks_in, DBL_TYPE temp_k,
   );
 }
 
-extern "C" void pfuncMulti(char ** inputSeqs, int nseqs, int * permSym, DBL_TYPE
-    * result) {
+extern "C" void pfuncMulti(char ** inputSeqs, int nseqs, int * permSym,
+    DBL_TYPE * temp_Cs, DBL_TYPE * result) {
 
   for (int s = 0; s < nseqs; s += nblocks) {
     for(int i = 0; i < nblocks; ++i) {
@@ -302,10 +327,11 @@ extern "C" void pfuncMulti(char ** inputSeqs, int nseqs, int * permSym, DBL_TYPE
       convertSeq(inputSeqs[s + i], intSeqs[i], len);
       seqlengths[i] = getSequenceLengthInt(intSeqs[i], nStrands_arr + i);
       permSymmetries[i] = permSym[s + i];
+      temps[i] = temp_Cs[s + i] + ZERO_C_IN_KELVIN;
     }
 
     pfuncFullWithSymHelper<<<nblocks, 256>>>(
-        pf, intSeqs, seqlengths, nStrands_arr, permSymmetries
+        pf, intSeqs, seqlengths, nStrands_arr, permSymmetries, temps
     );
     cudaDeviceSynchronize();
 
