@@ -199,12 +199,12 @@ void ClearLDoublesMatrix(DBL_TYPE **Q, int size, char name[]) {
 
 /* ******************************************** */
 DEV
-void nonZeroInit( DBL_TYPE Q[], int seq[], int seqlength) {
+void nonZeroInit( DBL_TYPE Q[], int seq[], int seqlength, energy_model_t *em) {
   // Set Q[i, i-1] = 1.
   int i;
 
   for( i = 0; i <= seqlength; i++) {
-    Q[ pf_index(i, i-1, seqlength)] = ExplDangle(i,i-1,seq,seqlength);
+    Q[ pf_index(i, i-1, seqlength)] = ExplDangle(i,i-1,seq,seqlength, em);
   }
 }
 

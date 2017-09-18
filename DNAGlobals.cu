@@ -12,8 +12,6 @@ int mfe_sort_method = 0;
 int NUPACK_VALIDATE = 0;
 int NupackShowHelp = 0;
 
-DEV energy_model_t ENERGIES;
-
 DBL_TYPE SODIUM_CONC;
 DBL_TYPE MAGNESIUM_CONC;
 int USE_LONG_HELIX_FOR_SALT_CORRECTION;

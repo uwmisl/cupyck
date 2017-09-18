@@ -36,6 +36,8 @@ int IsProcessorInUse(int rank, int L, int seqLen, int numCPUs ) {
     return (getNodesFirstEntry(L,rank,seqLen,numCPUs) != seqLen - L + 1);
 }
 
+__constant__ energy_model_t *energies;
+
 GLB
 void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
     int * nStrands_arr, int * permSymmetries) {
@@ -113,7 +115,7 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
       etaN[i] = etaN_space + (2 * i);
     }
     InitEtaN( etaN, nicks, seqlength);
-    nonZeroInit( Q, seq, seqlength);
+    nonZeroInit( Q, seq, seqlength, energies);
 
     InitLDoublesMatrix( &Qs, arraySize, "Qs");
     InitLDoublesMatrix( &Qms, arraySize, "Qms");
@@ -152,7 +154,7 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
         Qb[ pf_ij] = 0.0; //scaling still gives 0
       }
       else {
-        Qb[ pf_ij] = ExplHairpin( i, j, seq, seqlength, etaN);
+        Qb[ pf_ij] = ExplHairpin( i, j, seq, seqlength, etaN, energies);
 
         //no nicked haripins allowed in previous function
         if( etaN[ EtaNIndex(i+0.5, i+0.5, seqlength)][0] == 0 &&
@@ -160,26 +162,26 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
              //regular multiloop.  No top-level nicks
              
               Qb[ pf_ij] += SumExpMultiloops(i, j, seq, Qms, Qm,
-                                            seqlength, etaN);
+                                            seqlength, etaN, energies);
         }
 
         if( etaN[ EtaNIndex(i+0.5, j-0.5, seqlength)][0] >= 1) {
           //Exterior loop (created by nick)
           Qb[ pf_ij] += SumExpExteriorLoop( i, j, seq, seqlength, 
-                                           Q, nicks, etaN); 
+                                           Q, nicks, etaN, energies); 
         }
 
       }
 
-      fastILoops( i, j, L, seqlength, seq, etaN, Qb, Qx, Qx_2);
+      fastILoops( i, j, L, seqlength, seq, etaN, Qb, Qx, Qx_2, energies);
 
 
       /* Recursions for Qms, Qs */
-      MakeQs_Qms( i, j, seq, seqlength, Qs, Qms, Qb, nicks, etaN);
+      MakeQs_Qms( i, j, seq, seqlength, Qs, Qms, Qb, nicks, etaN, energies);
       
       /* Recursions for Q, Qm, Qz */
       MakeQ_Qm_N3( i, j, seq, seqlength, Q, Qs, Qms, Qm,
-                  nicks,etaN);
+                  nicks,etaN, energies);
 
 
     }
@@ -189,8 +191,8 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
   //adjust this for nStrands, symmetry at rank == 0 node
   if (threadIdx.x == 0) {
     returnValue = EXP_FUNC(
-        -1*(ENERGIES.bimolecular + ENERGIES.salt_correction)*(nStrands-1)/
-        (kB*ENERGIES.temp_k)
+        -1*(energies->bimolecular + energies->salt_correction)*(nStrands-1)/
+        (kB*energies->temp_k)
       ) * Q[ pf_index(0,seqlength-1, seqlength)]/((DBL_TYPE) permSymmetry);
 
     free( Q);
@@ -252,9 +254,19 @@ extern "C" void pfuncInitialize(int nblocks_in, DBL_TYPE temp_k,
   DNARNACOUNT = dnarnacount;
   TEMP_K = temp_k;
 
-  energy_model_t energies;
-  LoadEnergies(&energies, temp_k);
-  cudaMemcpyToSymbol(ENERGIES, &energies, sizeof(energy_model_t));
+  // Load Energy Model
+  energy_model_t em;
+  LoadEnergies(&em, temp_k);
+
+  // Allocate Device Memory
+  energy_model_t *em_d;
+  cudaMalloc(&em_d, sizeof(energy_model_t));
+  cudaMemcpy(em_d, &em, sizeof(energy_model_t), cudaMemcpyHostToDevice);
+
+  // Send Device Ptr to Device
+  cudaMemcpyToSymbol(energies, &em_d, sizeof(energy_model_t*));
+
+  //cudaMemcpyToSymbol(ENERGIES, &energies, sizeof(energy_model_t));
 
   cudaCheck(
     cudaMallocManaged(&pf, nblocks * sizeof(DBL_TYPE))

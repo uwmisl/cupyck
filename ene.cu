@@ -22,7 +22,7 @@ DEV DBL_TYPE ExplDangleRaw( int i, int j, int seq[], int seqlength);
 
 /* ************************************** */
 DEV
-DBL_TYPE HelixEnergy( int i, int j, int h, int m) {
+DBL_TYPE HelixEnergy( int i, int j, int h, int m, energy_model_t *em) {
   // Calculate the energy of the helical region closed by pair
   // i-j and h-m.  Data from Zuker's mfold file stack.dgd
 
@@ -33,19 +33,19 @@ DBL_TYPE HelixEnergy( int i, int j, int h, int m) {
   shift_hm = GetMismatchShift( h, m);
 
   if( shift_ij < 4 && shift_hm < 4) {
-    return ENERGIES.Stack[ ( i - 1)*6 + (h - 1) ];
+    return em->Stack[ ( i - 1)*6 + (h - 1) ];
   }
 
   if( shift_ij < 4 && shift_hm >= 4) {
-    return ENERGIES.Stack[ (i - 1)*6 + (h + 1) ];
+    return em->Stack[ (i - 1)*6 + (h + 1) ];
   }
 
   if( shift_ij >= 4 && shift_hm < 4) {
-    return ENERGIES.Stack[ (i + 1)*6 + (h - 1) ];
+    return em->Stack[ (i + 1)*6 + (h - 1) ];
   }
 
   if( shift_ij >= 4 && shift_hm >= 4) {
-    return ENERGIES.Stack[ (i + 1)*6 + (h + 1) ];
+    return em->Stack[ (i + 1)*6 + (h + 1) ];
   }
   else {
     printf("Error in HelixEnergy!");
@@ -56,7 +56,7 @@ DBL_TYPE HelixEnergy( int i, int j, int h, int m) {
 
 // *******************************************************************
 DEV
-DBL_TYPE InteriorMM( char a, char b, char x, char y) {
+DBL_TYPE InteriorMM( char a, char b, char x, char y, energy_model_t *em) {
 /*
   Interior Mismatch calculation
 
@@ -70,7 +70,7 @@ DBL_TYPE InteriorMM( char a, char b, char x, char y) {
   DBL_TYPE energy = 0.0;
 
   cp_shift = GetMismatchShift( a, b );
-  energy = ENERGIES.MMEnergiesIL[ (4*(( x) - 1) + (( y) - 1) )*6 + cp_shift];
+  energy = em->MMEnergiesIL[ (4*(( x) - 1) + (( y) - 1) )*6 + cp_shift];
 
   return energy;
 }
@@ -78,7 +78,7 @@ DBL_TYPE InteriorMM( char a, char b, char x, char y) {
 /* ********************************************** */
 
 DEV
-DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
+DBL_TYPE HairpinEnergy( int i, int j, int seq[], energy_model_t *em) {
 
   // This gives the energy of the hairpion closed by bases i and j
   DBL_TYPE energy;  //energy of hairpin
@@ -110,13 +110,13 @@ DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
   }
 
   if( size <= 30) {
-    energy = ENERGIES.loop37[ 60 + size - 1];
+    energy = em->loop37[ 60 + size - 1];
   }
   else {
-    energy = ENERGIES.loop37[ 60 + 30 - 1];
-    energy += sizeLog (size); //1.75*kB*TEMP_K*LOG_FUNC( size/30.0);
+    energy = em->loop37[ 60 + 30 - 1];
+    energy += sizeLog (size, em); //1.75*kB*TEMP_K*LOG_FUNC( size/30.0);
 
-    if( ENERGIES.dnarnacount == COUNT) {
+    if( em->dnarnacount == COUNT) {
       energy = 0;
     }
 
@@ -126,7 +126,7 @@ DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
     //Get Triloop energy
 
     if( seq[i] != BASE_C && seq[j] != BASE_C) {
-      energy += ENERGIES.at_penalty;
+      energy += em->at_penalty;
     }
 
     triloopnumber = 256*(( seq[i]) - 1) +
@@ -136,11 +136,11 @@ DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
       1*( ( seq[j]) - 1);
 
     // 0 mismatch energy for triloops
-    energy += ENERGIES.triloop_energy[ triloopnumber];
+    energy += em->triloop_energy[ triloopnumber];
 
     //Poly-C loop
     if( polyC == TRUE) {
-      energy += ENERGIES.polyc3;
+      energy += em->polyc3;
     }
   }
   else if (size == 4) {
@@ -151,17 +151,17 @@ DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
       16*( ( seq[j - 2]) - 1) +
       4*(  ( seq[j - 1]) - 1) +
       1*(  ( seq[j])- 1);
-    energy +=  ENERGIES.tloop_energy[ tloopnumber];
+    energy +=  em->tloop_energy[ tloopnumber];
 
     //Next do mismatches.
     cp_shift = GetMismatchShift( seq[i], seq[j]);
 
-    energy += ENERGIES.MMEnergiesHP[(4*(( seq[i + 1]) - 1) +
+    energy += em->MMEnergiesHP[(4*(( seq[i + 1]) - 1) +
                             (( seq[j - 1]) - 1) )*6
                            + cp_shift];
     //Poly-C loop
     if( polyC == TRUE) {
-      energy += ENERGIES.polycslope*size + ENERGIES.polycint;
+      energy += em->polycslope*size + em->polycint;
     }
   }
 
@@ -169,13 +169,13 @@ DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
     // Calculate mismatch
     cp_shift = GetMismatchShift( seq[i], seq[j]);
 
-    energy += ENERGIES.MMEnergiesHP[(4*(( seq[i + 1]) - 1) +
+    energy += em->MMEnergiesHP[(4*(( seq[i + 1]) - 1) +
                             (( seq[j - 1]) - 1) )*6
                            + cp_shift];
 
     //Poly-C loop
     if( polyC == TRUE) {
-      energy += ENERGIES.polycslope*size + ENERGIES.polycint;
+      energy += em->polycslope*size + em->polycint;
     }
   }
   return energy;
@@ -185,13 +185,14 @@ DBL_TYPE HairpinEnergy( int i, int j, int seq[] ) {
 
 /* ****************************************** */
 DEV
-DBL_TYPE InteriorEnergy(  int i, int j, int h, int m, int seq[]) {
-  return InteriorEnergyFull( i, j, h, m, seq, TRUE);
+DBL_TYPE InteriorEnergy(  int i, int j, int h, int m, int seq[], energy_model_t
+    * em) {
+  return InteriorEnergyFull( i, j, h, m, seq, TRUE, em);
 }
 
 DEV
 DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
-                             int calcIJ) {
+                             int calcIJ, energy_model_t *em) {
 
   DBL_TYPE energy = 0.0;
   int L1, L2; //lengths of the 2 single stranded regions
@@ -199,7 +200,7 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
   int asymmetry;
   int cp_shift, ip_shift;  // For classifying basepairs
 
-  if( ENERGIES.dnarnacount == COUNT) return 0;
+  if( em->dnarnacount == COUNT) return 0;
 #ifdef DEBUG
   if( i >= h || h >= m || m >= j) {
     printf("Invalid boundary to interior loop! %d %d %d %d\n", i, h, m, j);
@@ -212,30 +213,30 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
   size = L1 + L2;
 
   if( size == 0) { //Helical region
-    energy = HelixEnergy( seq[i], seq[j], seq[h], seq[m] );
+    energy = HelixEnergy( seq[i], seq[j], seq[h], seq[m], em);
   }
 
   else if ( L1*L2 == 0) { //Bulge
     if( size <= 30) {
-      energy = ENERGIES.loop37[ 30 + size - 1];
+      energy = em->loop37[ 30 + size - 1];
     }
     else {
-      energy = ENERGIES.loop37[ 30 + 30 - 1];
-      energy += sizeLog (size); //1.75*kB*TEMP_K*LOG_FUNC( size/30.0);
+      energy = em->loop37[ 30 + 30 - 1];
+      energy += sizeLog (size, em); //1.75*kB*TEMP_K*LOG_FUNC( size/30.0);
     }
 
     if( L1 + L2 == 1 ) { //single bulge...treat as a stacked region
-      energy += HelixEnergy( seq[i], seq[j], seq[h], seq[m] );
-      energy -= ENERGIES.salt_correction;  // Correct for the extra salt correction
+      energy += HelixEnergy( seq[i], seq[j], seq[h], seq[m], em);
+      energy -= em->salt_correction;  // Correct for the extra salt correction
                                  // added from the HelixEnergy
     }
     else {
       // Next do AT_Penalty for no GC termination, assuming size >= 2
       if( seq[i] != BASE_C && seq[j] != BASE_C) {
-        energy += ENERGIES.at_penalty;
+        energy += em->at_penalty;
       }
       if( seq[h] != BASE_C && seq[m] != BASE_C) {
-        energy += ENERGIES.at_penalty;
+        energy += em->at_penalty;
       }
     }
   }
@@ -243,25 +244,25 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
     asymmetry = abs( L1 - L2);
     if( asymmetry > 1 || size > 4) { //data not tabulated
 
-      energy = asymmetryEfn( L1, L2, size);
+      energy = asymmetryEfn( L1, L2, size, em);
 
       //Stacking Energy
       if( L1 > 1 && L2 > 1) { //Non-GAIL Version
-        energy += InteriorMM( seq[m], seq[h], seq[m+1], seq[h-1]);
+        energy += InteriorMM( seq[m], seq[h], seq[m+1], seq[h-1], em);
 
         if( calcIJ == TRUE)
-          energy += InteriorMM( seq[i], seq[j], seq[i+1], seq[j-1]);
+          energy += InteriorMM( seq[i], seq[j], seq[i+1], seq[j-1], em);
       }
       else if( L1 == 1 || L2 == 1) {// GAIL =>assume AA terminal mismatch
 #ifndef NO_GAIL
         energy +=
-          InteriorMM( seq[m], seq[h], BASE_A, BASE_A);
+          InteriorMM( seq[m], seq[h], BASE_A, BASE_A, em);
         if( calcIJ == TRUE)
-          energy += InteriorMM( seq[i], seq[j], BASE_A, BASE_A);
+          energy += InteriorMM( seq[i], seq[j], BASE_A, BASE_A, em);
 #else
-        energy += InteriorMM( seq[m], seq[h], seq[m+1], seq[h-1]);
+        energy += InteriorMM( seq[m], seq[h], seq[m+1], seq[h-1], em);
         if( calcIJ == TRUE)
-          energy += InteriorMM( seq[i], seq[j], seq[i+1], seq[j-1])
+          energy += InteriorMM( seq[i], seq[j], seq[i+1], seq[j-1], em)
 #endif
       }
       else {
@@ -274,7 +275,7 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
         cp_shift = GetMismatchShift( seq[i], seq[j]);
         ip_shift = GetMismatchShift( seq[h], seq[m]);
         if (cp_shift==-1 || ip_shift==-1) return 0.0; //Wrongly called
-        energy += ENERGIES.IL_SInt2[ 96*cp_shift + 16*ip_shift +
+        energy += em->IL_SInt2[ 96*cp_shift + 16*ip_shift +
                            4*(( seq[i+1]) - 1) +
                            (( seq[ j -1]) - 1) ];
       }
@@ -282,7 +283,7 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
         cp_shift = GetMismatchShift( seq[i], seq[j]);
         ip_shift = GetMismatchShift( seq[h], seq[m]);
         if (cp_shift==-1 || ip_shift==-1) return 0.0; //Wrongly called
-        energy += ENERGIES.IL_SInt4[ cp_shift*256*6 +  ip_shift*256 +
+        energy += em->IL_SInt4[ cp_shift*256*6 +  ip_shift*256 +
                            (4*(( seq[ i+1])  - 1) +
                             ( seq[ j - 1])   - 1)*16 +
                            (4*( ( seq[ i+2]) - 1) +
@@ -292,7 +293,7 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
         cp_shift = GetMismatchShift( seq[i], seq[j]);
         ip_shift = GetMismatchShift( seq[h], seq[m]);
         if (cp_shift==-1 || ip_shift==-1) return 0.0; //Wrongly called
-        energy += ENERGIES.IL_AsInt1x2[ cp_shift*4*24*4 +
+        energy += em->IL_AsInt1x2[ cp_shift*4*24*4 +
                               (( seq[ j - 2]) - 1)*24*4 +
                               (( seq[ i + 1]) - 1)*24 +
                               4*ip_shift +
@@ -305,7 +306,7 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
         //note reversed order of inputs above.
         //This is to comply with the format of asint1x2
 
-        energy += ENERGIES.IL_AsInt1x2[ ip_shift*4*24*4 +
+        energy += em->IL_AsInt1x2[ ip_shift*4*24*4 +
                               (( seq[i + 1]) - 1)*24*4 +
                               (( seq[j - 1]) - 1)*24 +
                               4*cp_shift +
@@ -326,108 +327,17 @@ DBL_TYPE InteriorEnergyFull( int i, int j, int h, int m, int seq[],
 }
 
 
-
-/* ********************************************** */
-DEV
-DBL_TYPE DangleEnergyWithPairs( int i, int j, fold *thefold) {
-
-  DBL_TYPE dangle5 = NAD_INFINITY;
-  DBL_TYPE dangle3 = NAD_INFINITY;
-  int dangle_shift;
-  int *pairs = thefold->pairs;
-  int *seq = thefold->seq;
-  int seqlength = thefold->seqlength;
-
-  int pairi1, pairj1;
-  int nick3 = 0;
-  int nick5 = 0;
-
-  if( i == 0) {
-    pairi1 = -1;
-  }
-  else {
-    pairi1 = pairs[i-1];
-  }
-
-  if( j == seqlength - 1) {
-    pairj1 = -1;
-  }
-  else {
-    pairj1 = pairs[j+1];
-  }
-
-  if( j == seqlength - 1) {
-    dangle3 = 0;
-  }
-  else {
-    dangle_shift = GetMismatchShift( seq[ pairj1], seq[ j+1]);
-#ifdef MATCH_PF
-    if( dangle_shift >= 4) {
-#ifdef STRUCTURE_WARNINGS
-      printf("Error! This struture not in PF because of wobble %d %d\n", i, j);
-#endif
-        return NAD_INFINITY;
-      assert(0);
-    }
-#endif
-    if( j != -1)
-      dangle3 = ENERGIES.dangle_energy[ 24 + dangle_shift*4 + ( seq[ j]) - 1];
-  }
-
-  if( i == 0) {
-    dangle5 = 0;
-  }
-  else {
-    dangle_shift = GetMismatchShift( seq[ i-1], seq[ pairi1]);
-
-#ifdef MATCH_PF
-    if( dangle_shift >= 4) {
-#ifdef STRUCTURE_WARNINGS
-      fprintf(stderr, "Error! This struture not in PF because of wobble- %d %d\n",i,j);
-#endif
-        return NAD_INFINITY;
-    }
-#endif
-    if( i != seqlength)
-      dangle5 = ENERGIES.dangle_energy[ dangle_shift*4 + ( seq[ i]) - 1];
-  }
-
-  if( ENERGIES.dangletype != 2 && j == i - 1) {
-    return 0;
-  }
-  else if( ENERGIES.dangletype == 2 && j == i - 1 && (i == 0 || j == seqlength - 1) ) {
-    return 0;
-  }
-
-  if( i != 0 && thefold->isNicked[i-1]) {
-    nick5 = 1;
-  }
-  if(  j != seqlength - 1 && thefold->isNicked[j]) {
-    nick3 = 1;
-  }
-
-  if( nick5 && nick3) return 0;
-  if( nick5 && !nick3) return dangle3;
-  if( !nick5 && nick3) return dangle5;
-
-  if( ENERGIES.dangletype == 1 && i == j && i != 0 && j != seqlength - 1) {
-    return MIN(dangle3, dangle5 );
-  }
-
-  return dangle3 + dangle5;
-}
-
-
 /* ******************************** */
 DEV
-DBL_TYPE DangleEnergy( int i, int j, int seq[], int seqlength) {
+DBL_TYPE DangleEnergy( int i, int j, int seq[], int seqlength, energy_model_t
+    *em) {
   //0 energy except for dangles
 
   DBL_TYPE dangle5 = 0;
   DBL_TYPE dangle3 = 0;
   int dangle_shift;
 
-  if( ENERGIES.dangletype != 2) {
+  if( em->dangletype != 2) {
     if( j == i - 1) {
       return 0;
     }
@@ -446,7 +356,7 @@ DBL_TYPE DangleEnergy( int i, int j, int seq[], int seqlength) {
       assert(0);
     }
     dangle_shift = 3 - pt;
-    dangle3 = ENERGIES.dangle_energy[ 24 + dangle_shift*4 +
+    dangle3 = em->dangle_energy[ 24 + dangle_shift*4 +
                             ( seq[ j]) - 1];
   }
 
@@ -461,11 +371,11 @@ DBL_TYPE DangleEnergy( int i, int j, int seq[], int seqlength) {
     }
 
     dangle_shift = pt;
-    dangle5 = ENERGIES.dangle_energy[ dangle_shift*4 +
+    dangle5 = em->dangle_energy[ dangle_shift*4 +
                             ( seq[ i]) - 1];
   }
 
-  if( ENERGIES.dangletype != 2 && i == j && i != 0 && j != seqlength - 1) {
+  if( em->dangletype != 2 && i == j && i != 0 && j != seqlength - 1) {
     return MIN(dangle3, dangle5 );
   }
 
@@ -474,7 +384,8 @@ DBL_TYPE DangleEnergy( int i, int j, int seq[], int seqlength) {
 
 /* ******************************** */
 DEV
-DBL_TYPE ExplDangleRaw( int i, int j, int seq[], int seqlength) {
+DBL_TYPE ExplDangleRaw( int i, int j, int seq[], int seqlength, energy_model_t
+    *em) {
   //0 energy except for dangles
 
   DBL_TYPE dangle5 = 0;
@@ -493,7 +404,7 @@ DBL_TYPE ExplDangleRaw( int i, int j, int seq[], int seqlength) {
   }
   else {
     dangle_shift = 3 - GetPairType( seq[ j + 1]);
-    dangle3 = ENERGIES.dangle_energy[ 24 + dangle_shift*4 +
+    dangle3 = em->dangle_energy[ 24 + dangle_shift*4 +
                             seq[ j] - 1];
   }
 
@@ -502,22 +413,22 @@ DBL_TYPE ExplDangleRaw( int i, int j, int seq[], int seqlength) {
   }
   else {
     dangle_shift = GetPairType( seq[i-1]);
-    dangle5 = ENERGIES.dangle_energy[ dangle_shift*4 +
+    dangle5 = em->dangle_energy[ dangle_shift*4 +
                             seq[ i] - 1];
   }
 
   if(i == j && i != 0 && j != seqlength - 1) {
-    if (ENERGIES.dangletype == 2) return EXP_FUNC(-(dangle5 + dangle3)/(ENERGIES.temp_k*kB));
-    return EXP_FUNC( -MIN(dangle3, dangle5)/(ENERGIES.temp_k*kB) );
+    if (em->dangletype == 2) return EXP_FUNC(-(dangle5 + dangle3)/(em->temp_k*kB));
+    return EXP_FUNC( -MIN(dangle3, dangle5)/(em->temp_k*kB) );
   }
 
-  return EXP_FUNC( -(dangle3 + dangle5)/(ENERGIES.temp_k*kB) );
+  return EXP_FUNC( -(dangle3 + dangle5)/(em->temp_k*kB) );
 }
 
 //TODO: disable cache?
 DEV
-DBL_TYPE ExplDangle( int i, int j, int seq[], int seqlength) {
-  return ExplDangleRaw(i,j,seq,seqlength);
+DBL_TYPE ExplDangle( int i, int j, int seq[], int seqlength, energy_model_t *em) {
+  return ExplDangleRaw(i,j,seq,seqlength, em);
   /*
   static DBL_TYPE *EDCache=NULL;
   static int CacheInd=-1, nCaches=0, dangleTypeCache=2;
@@ -559,7 +470,7 @@ DBL_TYPE ExplDangle( int i, int j, int seq[], int seqlength) {
 /* *********** */
 DEV
 DBL_TYPE NickDangle(int i, int j, const int *nicks, int **etaN, int hairpin,
-                    int seq[], int seqlength) {
+                    int seq[], int seqlength, energy_model_t *em) {
 
   DBL_TYPE dangle5 = 0;
   DBL_TYPE dangle3 = 0;
@@ -585,7 +496,7 @@ DBL_TYPE NickDangle(int i, int j, const int *nicks, int **etaN, int hairpin,
     nick = nicks[ etaN[ nIndex][1]];
   }
 
-  if( ENERGIES.dnarnacount == COUNT)
+  if( em->dnarnacount == COUNT)
     return 0;
 
   if( j == i - 1) {
@@ -606,7 +517,7 @@ DBL_TYPE NickDangle(int i, int j, const int *nicks, int **etaN, int hairpin,
       dangle_shift = GetMismatchShift( seq[i-1], seq[j+1]);
     }
 
-    dangle3 = ENERGIES.dangle_energy[ 24 + dangle_shift*4 +
+    dangle3 = em->dangle_energy[ 24 + dangle_shift*4 +
                             ( seq[ j]) - 1];
   }
 
@@ -621,7 +532,7 @@ DBL_TYPE NickDangle(int i, int j, const int *nicks, int **etaN, int hairpin,
       dangle_shift = GetMismatchShift( seq[i-1], seq[j+1]);
     }
 
-    dangle5 = ENERGIES.dangle_energy[ dangle_shift*4 +
+    dangle5 = em->dangle_energy[ dangle_shift*4 +
                             ( seq[ i]) - 1];
   }
 
@@ -633,7 +544,7 @@ DBL_TYPE NickDangle(int i, int j, const int *nicks, int **etaN, int hairpin,
       return dangle3 + dangle5;
     }
     if(j == i && i != 0 && j != seqlength - 1) {
-      if (ENERGIES.dangletype == 2) return dangle3 + dangle5;
+      if (em->dangletype == 2) return dangle3 + dangle5;
       return MIN(dangle3, dangle5);
     }
     //j == i-1 already handled above
@@ -646,12 +557,12 @@ DBL_TYPE NickDangle(int i, int j, const int *nicks, int **etaN, int hairpin,
 /* ************** */
 DEV
 DBL_TYPE NickedEmptyQ( int i, int j, const int nicks[], int seq[],
-                      int seqlength, int **etaN) {
+                      int seqlength, int **etaN, energy_model_t *em) {
 
   if( j <= i || etaN[ EtaNIndex( i+0.5, j-0.5, seqlength)][0] == 0) {
     return EXP_FUNC( -1*NickDangle(i, j, nicks, etaN,
-                              FALSE, seq, seqlength)
-                /(kB*ENERGIES.temp_k));
+                              FALSE, seq, seqlength, em)
+                /(kB*em->temp_k));
   }
   else { //disconnected
     return 0;
@@ -659,35 +570,22 @@ DBL_TYPE NickedEmptyQ( int i, int j, const int nicks[], int seq[],
 
 }
 
-/* ******** */
-DEV
-DBL_TYPE NickedEmptyF( int i, int j, const int nicks[], int seq[],
-                       int seqlength, int **etaN) {
-  DBL_TYPE result = NAD_INFINITY;
-
-  if( j <= i || etaN[ EtaNIndex( i+0.5, j-0.5, seqlength)][0] == 0) {
-    result = NickDangle(i, j, nicks, etaN, FALSE, seq, seqlength);
-  }
-
-  return result;
-}
-
 /* ********* */
 DEV
-DBL_TYPE ExplInternal( int i, int j, int h, int m, int seq[]) {
+DBL_TYPE ExplInternal( int i, int j, int h, int m, int seq[], energy_model_t *em) {
   // Calculates E^(-energy/RT) of interior loop closed by i-j and h-m
 
-  DBL_TYPE energy = InteriorEnergy( i, j, h, m, seq);
+  DBL_TYPE energy = InteriorEnergy( i, j, h, m, seq, em);
   if( energy == NAD_INFINITY) {
     return 0.0;
   }
-  return EXP_FUNC( - energy/( kB*ENERGIES.temp_k));
+  return EXP_FUNC( - energy/( kB*em->temp_k));
 }
 
 //TODO: caches, huh?
 DEV
-DBL_TYPE sizeLog(int size){
-  return 1.75*kB*ENERGIES.temp_k*LOG_FUNC(size/30.0);
+DBL_TYPE sizeLog(int size, energy_model_t *em){
+  return 1.75*kB*em->temp_k*LOG_FUNC(size/30.0);
   /*
   static DBL_TYPE *slCache[MAXSTRANDS], *edc, tc;
   static int CacheInd=-1, nCaches=0;
@@ -737,7 +635,7 @@ DBL_TYPE sizeLog(int size){
 
 /* ******* */
 DEV
-DBL_TYPE asymmetryEfn( int L1, int L2, int size) {
+DBL_TYPE asymmetryEfn( int L1, int L2, int size, energy_model_t *em) {
 
   int asymmetry_index;
   DBL_TYPE energy;
@@ -745,11 +643,11 @@ DBL_TYPE asymmetryEfn( int L1, int L2, int size) {
 
   //Loop Size Energy
   if( size <= 30) {
-    energy = ENERGIES.loop37[ size - 1];
+    energy = em->loop37[ size - 1];
   }
   else {
-    energy = ENERGIES.loop37[ 30 - 1];
-    energy += sizeLog(size);
+    energy = em->loop37[ 30 - 1];
+    energy += sizeLog(size, em);
   }
 
   //Asymmetry rountine copied from efn.f in Zuker's mfold package.
@@ -763,11 +661,11 @@ DBL_TYPE asymmetryEfn( int L1, int L2, int size) {
     asymmetry_index = L2;
   }
 
-  if( asymmetry*ENERGIES.asymmetry_penalty[ asymmetry_index - 1] < ENERGIES.max_asymmetry ) {
-    energy += asymmetry*ENERGIES.asymmetry_penalty[ asymmetry_index - 1];
+  if( asymmetry*em->asymmetry_penalty[ asymmetry_index - 1] < em->max_asymmetry ) {
+    energy += asymmetry*em->asymmetry_penalty[ asymmetry_index - 1];
   }
   else {
-    energy += ENERGIES.max_asymmetry; // MAX asymmetry penalty
+    energy += em->max_asymmetry; // MAX asymmetry penalty
   }
   return energy;
 }

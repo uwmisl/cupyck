@@ -58,8 +58,6 @@ typedef struct {
 
 } energy_model_t;
 
-extern DEV energy_model_t ENERGIES;
-
 /*
 extern DBL_TYPE Stack[36];
 extern DBL_TYPE loop37[90];
