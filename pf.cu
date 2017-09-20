@@ -63,9 +63,6 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
   //dangles: 0 = none, 1 = normal, 2 = add both
 
   __shared__ int *seq;
-  if(threadIdx.x == 0) {
-    seq = (int*)malloc((seqlength + 1) * sizeof(int));
-  }
 
   __shared__ DBL_TYPE *Q;
   __shared__ DBL_TYPE *Qb;
@@ -97,45 +94,42 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
 
   int iMin;
   int iMax;
-  
 
-  __shared__ int nicks[ MAXSTRANDS];  //the entries must be strictly increasing
-  if (threadIdx.x == 0) {
-    for (i=0;i<MAXSTRANDS;i++){
-      nicks[i]=-1;
-    }
-  }
-  //nicks[i] = N means a strand ends with base N, and a new one starts at N+1
-  // isNicked[n] is 0 if no nick at n, 1 otherwise
-
+  __shared__ int nicks[ MAXSTRANDS];
   __shared__ int **etaN;
   __shared__ int *etaN_space;
 
+  int arraySize = seqlength*(seqlength+1)/2+(seqlength+1);
+
+  assert(blockDim.x >= 11);
+  switch (threadIdx.x) {
+    case 0: etaN = (int**) malloc(arraySize * sizeof(int*));         break;
+    case 1: etaN_space = (int*) malloc(arraySize * 2 * sizeof(int)); break;
+    case 2: InitLDoublesMatrix( &Q, arraySize, "Q");                 break;
+    case 3: InitLDoublesMatrix( &Qb, arraySize, "Qb");               break;
+    case 4: InitLDoublesMatrix( &Qm, arraySize, "Qm");               break;
+    case 5: InitLDoublesMatrix( &Qs, arraySize, "Qs");               break;
+    case 6: InitLDoublesMatrix( &Qms, arraySize, "Qms");             break;
+    case 7: InitLDoublesMatrix( &Qx, arraySize/2, "Qx");             break;
+    case 8: InitLDoublesMatrix( &Qx_1, arraySize/2, "Qx_1");         break;
+    case 9: InitLDoublesMatrix( &Qx_2, arraySize/2, "Qx_2");         break;
+    case 10: seq = (int*) malloc((seqlength + 1) * sizeof(int));     break;
+  }
+  for (int i = threadIdx.x; i < MAXSTRANDS; i += blockDim.x) {
+    nicks[i]=-1;
+  }
+  __syncthreads();
   if (threadIdx.x == 0) {
     processMultiSequence( inputSeq, seqlength, nStrands, seq, nicks);
-
-    // Allocate and Initialize Matrices
-    int arraySize = seqlength*(seqlength+1)/2+(seqlength+1);
-
-    InitLDoublesMatrix( &Q, arraySize, "Q");
-    InitLDoublesMatrix( &Qb, arraySize, "Qb");
-    InitLDoublesMatrix( &Qm, arraySize, "Qm");
-
-    etaN = (int**)malloc(arraySize * sizeof(int*));
-    etaN_space = (int*)malloc(arraySize * 2 * sizeof(int));
-    for (int i = 0; i < arraySize; ++i) {
-      etaN[i] = etaN_space + (2 * i);
-    }
-    InitEtaN( etaN, nicks, seqlength);
     nonZeroInit( Q, seq, seqlength, em);
+  }
+  for (int i = threadIdx.x; i < arraySize; i += blockDim.x) {
+    etaN[i] = etaN_space + (2 * i);
+  }
+  __syncthreads();
 
-    InitLDoublesMatrix( &Qs, arraySize, "Qs");
-    InitLDoublesMatrix( &Qms, arraySize, "Qms");
-
-    InitLDoublesMatrix( &Qx, arraySize/2, "Qx");
-    InitLDoublesMatrix( &Qx_1, arraySize/2, "Qx_1");
-    InitLDoublesMatrix( &Qx_2, arraySize/2, "Qx_2");
-
+  if (threadIdx.x == 0) {
+    InitEtaN( etaN, nicks, seqlength);
   }
 
   for( L = 1; L <= seqlength; L++) {
@@ -206,33 +200,20 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
         -1*(em->bimolecular + em->salt_correction)*(nStrands-1)/
         (kB*em->temp_k)
       ) * Q[ pf_index(0,seqlength-1, seqlength)]/((DBL_TYPE) permSymmetry);
-
-    free( Q);
-    free( Qb);
-    free( Qm);
-
-    Q = Qb = Qm = NULL;
-
-    free( Qs);
-    free( Qms);
-    
-    free( Qx);
-    free( Qx_1);
-    free( Qx_2);
-    
-    Qs = Qms = Qx = Qx_1 = Qx_2 = NULL;
-
-    free( seq);
-
-    for( i = 0; i <= seqlength-1; i++) {
-      for( j = i-1; j <= seqlength-1; j++) {
-        pf_ij = pf_index(i,j,seqlength);
-        free( etaN[pf_ij]);
-      }
-    }
-
-    free( etaN);
     pf[blockIdx.x] = returnValue;
+  }
+  switch(threadIdx.x) {
+    case 0: free( Q); break;
+    case 1: free( Qb); break;
+    case 2: free( Qm); break;
+    case 3: free( Qs); break;
+    case 4: free( Qms); break;
+    case 5: free( Qx); break;
+    case 6: free( Qx_1); break;
+    case 7: free( Qx_2); break;
+    case 8: free( seq); break;
+    case 9: free( etaN); break;
+    case 10: free( etaN_space); break;
   }
 }
 /* ****** */
