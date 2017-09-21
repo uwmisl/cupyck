@@ -43,8 +43,8 @@ def test_seqs():
     import numpy as np
     randseq = lambda n: "".join(np.random.choice(list("ATCG"), n))
 
-    seqs = [ randseq(40) + "+" + randseq(40) for _ in range(16384) ]
-    temps = np.random.uniform(0,100,16384)
+    seqs = [ randseq(40) + "+" + randseq(40) for _ in range(4096) ]
+    temps = np.random.uniform(0,100,4096)
 
     pool = Pool()
     checks = pool.map(check, zip(seqs, temps))

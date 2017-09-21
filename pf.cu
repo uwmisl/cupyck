@@ -388,7 +388,8 @@ extern "C" void pfuncMulti(char ** inputSeqs, int nseqs, int * permSym,
     DBL_TYPE * temp_Cs, DBL_TYPE * result) {
 
   for (int s = 0; s < nseqs; s += nblocks) {
-    for(int i = 0; i < nblocks; ++i) {
+    int njobs = MIN(nblocks, nseqs - s);
+    for(int i = 0; i < njobs; ++i) {
       int len = strlen(inputSeqs[s + i]);
       convertSeq(inputSeqs[s + i], intSeqs[i], len);
       seqlengths[i] = getSequenceLengthInt(intSeqs[i], nStrands_arr + i);
@@ -396,12 +397,12 @@ extern "C" void pfuncMulti(char ** inputSeqs, int nseqs, int * permSym,
       temps[i] = temp_Cs[s + i] + ZERO_C_IN_KELVIN;
     }
 
-    pfuncFullWithSymHelper<<<nblocks, 64>>>(
+    pfuncFullWithSymHelper<<<njobs, 64>>>(
         pf, intSeqs, seqlengths, nStrands_arr, permSymmetries, temps
     );
     cudaDeviceSynchronize();
 
-    for(int i = 0; i < nblocks; ++i) {
+    for(int i = 0; i < njobs; ++i) {
       result[s + i] = pf[i];
     }
   }
