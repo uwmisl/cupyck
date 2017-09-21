@@ -13,7 +13,7 @@
 #include "runtime_constants.h"
 
 //sets the type of floating point variables
-#define DBL_TYPE double
+#define DBL_TYPE float
 #define EXP_FUNC exp
 #define LOG_FUNC log
 

@@ -1,16 +1,20 @@
 import nupyck.core
 import nupyck.apps.pfunc
 from nupyck.core import DNA
+from multiprocessing import Pool
 import math
 
 from ctypes import *
 lib = cdll.LoadLibrary("./pfunc-cuda.so")
+
+fp_type = c_float
+
 def init():
     lib.pfuncInitialize(
-                c_int(64),
-                c_double(0), c_double(100), c_double(0.125),
-                c_double(1.0),
-                c_double(0.0),
+                c_int(16384),
+                fp_type(0), fp_type(100), fp_type(0.05),
+                fp_type(1.0),
+                fp_type(0.0),
                 c_int(0),
                 c_int(1),
                 c_int(0)
@@ -25,22 +29,26 @@ def pfmulti(seqs, temps):
 
     permSyms = (c_int * nseqs)(*[1 for _ in seqs])
 
-    c_temps = (c_double * nseqs)(*temps)
+    c_temps = (fp_type * nseqs)(*temps)
 
-    result = (c_double * nseqs)()
+    result = (fp_type * nseqs)()
     lib.pfuncMulti(inputSeqs, c_int(nseqs), permSyms, c_temps, byref(result))
     return [-nupyck.core.kB * (273.15 + temp) * math.log(max(pf,1))
             for pf, temp in zip(result, temps)]
+
+def check((seq, temp)):
+    return nupyck.apps.pfunc.single(seq, temp, material = DNA)['energy']
 
 def test_seqs():
     import numpy as np
     randseq = lambda n: "".join(np.random.choice(list("ATCG"), n))
 
-    seqs = [ randseq(80) + "+" + randseq(80) for _ in range(256) ]
-    temps = np.random.uniform(0,100,256)
+    seqs = [ randseq(40) + "+" + randseq(40) for _ in range(16384) ]
+    temps = np.random.uniform(0,100,16384)
 
-    checks = [ nupyck.apps.pfunc.single(seq, temp, material = DNA)['energy']
-            for seq, temp in zip(seqs, temps) ]
+    pool = Pool()
+    checks = pool.map(check, zip(seqs, temps))
+    pool.close()
 
     result = pfmulti(seqs, temps)
     print np.abs((np.array(checks) - np.array(result))).max()
