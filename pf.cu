@@ -396,7 +396,7 @@ extern "C" void pfuncMulti(char ** inputSeqs, int nseqs, int * permSym,
       temps[i] = temp_Cs[s + i] + ZERO_C_IN_KELVIN;
     }
 
-    pfuncFullWithSymHelper<<<nblocks, 256>>>(
+    pfuncFullWithSymHelper<<<nblocks, 64>>>(
         pf, intSeqs, seqlengths, nStrands_arr, permSymmetries, temps
     );
     cudaDeviceSynchronize();
