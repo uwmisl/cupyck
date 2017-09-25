@@ -10,7 +10,7 @@ import numpy as np
 from ctypes import *
 lib = cdll.LoadLibrary("./pfunc-cuda.so")
 
-fp_type = c_float
+fp_type = c_double
 
 def init():
     lib.pfuncInitialize(

@@ -375,7 +375,7 @@ extern "C" void pfuncInitialize(
 
   // perform allocations
   PFMemory *pfm_host = new PFMemory[nblocks];
-  for(int i = 0; i < nblocks; ++i) { pfm_host[i].init(200); }
+  for(int i = 0; i < nblocks; ++i) { pfm_host[i].init(100); }
   PFMemory *pfm_dev;
   cudaMalloc(&pfm_dev, nblocks * sizeof(PFMemory));
   cudaMemcpy(pfm_dev, pfm_host, nblocks * sizeof(PFMemory), cudaMemcpyHostToDevice);
