@@ -6,15 +6,23 @@ from nupyck.core import DNA
 from multiprocessing import Pool
 import math
 import numpy as np
+import time
+
+
+from scoop import futures
+import zmq
+import pickle
 
 from ctypes import *
-lib = cdll.LoadLibrary("./pfunc-cuda.so")
 
 fp_type = c_double
+lib = None
 
 def init():
+    global lib
+    lib = cdll.LoadLibrary("./pfunc-cuda.so")
     lib.pfuncInitialize(
-                c_int(256),
+                c_int(16384),
                 fp_type(0), fp_type(100), fp_type(0.05),
                 fp_type(1.0),
                 fp_type(0.0),
@@ -34,7 +42,6 @@ def pair_perms((template, primer)):
             ]
 
 
-#def melt_search(templates, primers, tconc, pconc, t_lo, t_hi):
 def pfmulti(seqs, temps, syms, normed=False):
     nseqs = len(seqs)
 
@@ -109,17 +116,11 @@ def calc_conc(G, t_conc, p_conc, temp, na=1.0, mg=0.0):
 
 
 
-def test(n, t_lo, t_hi):
+def test(templates, primers, t_lo, t_hi):
+    n = len(templates)
     melts = np.zeros(n)
     rem = np.arange(n)
     converged = np.zeros(n).astype(bool)
-
-    randseq = lambda n: "".join(np.random.choice(list("ATCG"), n))
-
-    templates = [ randseq(40) for _ in range(n) ]
-    primers = [ randseq(40) for _ in range(n) ]
-    print [conc.melting_temp(t, p, 1e-1, 1e-1, 0, 100) for t,p in zip(templates,
-            primers)]
 
     seqs = np.concatenate(map(pair_perms, zip(templates, primers))).reshape(-1,5)
     syms = np.tile([1,1,2,1,2], n).reshape(-1,5)
@@ -178,27 +179,63 @@ def test(n, t_lo, t_hi):
     return melts
 
 
-init()
-melts = test(10, 0.0, 100.0)
-print melts
+port = 2046
+def client(server):
+    ctx = zmq.Context()
+    sock = ctx.socket(zmq.REQ)
+    sock.connect("tcp://%s:2046" % server)
 
 
-def check((seq, temp)):
-    return nupyck.apps.pfunc.single(seq, temp, material = DNA)['energy']
-
-def test_seqs():
-    import numpy as np
     randseq = lambda n: "".join(np.random.choice(list("ATCG"), n))
+    n = 24000
+    templates = [ randseq(40) for _ in range(n) ]
+    primers = [ randseq(40) for _ in range(n) ]
 
-    seqs = [ randseq(40) + "+" + randseq(40) for _ in range(4096) ]
-    temps = np.random.uniform(0,100,4096)
+    # gpu
+    init()
+    start = time.time()
+    gpu_melts = test(templates, primers, 0.0, 100.0)
+    end = time.time()
+    print "gpu time: %f seconds" % (end - start)
 
-    pool = Pool()
-    checks = pool.map(check, zip(seqs, temps))
-    pool.close()
+    # cluster
+    start = time.time()
+    pairs = zip(templates, primers)
+    sock.send(pickle.dumps(pairs))
+    msg = sock.recv()
+    cpu_melts = pickle.loads(msg)
+    end = time.time()
+    print "cluster time: %f seconds" % (end - start)
 
-    result = pfmulti(seqs, temps)
-    print np.abs((np.array(checks) - np.array(result))).max()
+    sock.close()
 
-#init()
-#test_seqs()
+    print np.square(gpu_melts - cpu_melts).mean()
+
+def check((template, primer)):
+    return conc.melting_temp(template, primer, 1e-1, 1e-1, 0, 100)
+
+def server():
+    ctx = zmq.Context()
+    sock = ctx.socket(zmq.REP)
+    sock.bind("tcp://*:2046")
+
+    msg = sock.recv()
+    pairs = pickle.loads(msg)
+
+    melts = np.array(list(futures.map(check, pairs)))
+    sock.send(pickle.dumps(melts))
+
+    sock.close()
+
+
+if __name__ == '__main__':
+    import sys
+    role = sys.argv[1]
+
+    if role == 'server':
+        server()
+
+    else:
+        client(role)
+
+
