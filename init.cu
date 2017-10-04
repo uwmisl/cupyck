@@ -16,67 +16,6 @@
 #include "pfuncUtilsHeader.h"
 #include "DNAExternals.h"
 
-/* ************************************************* */
-void ReadSequence( int *seqlength, char **seq, char filename[ MAXLINE] ) {
-  FILE *fp;
-  char line[MAXLINE] = "\0";
-  int i; //position in line
-  int linenumber; //line number
-  char tempSeq[ MAXSEQLENGTH] = "\0";
-
-  *seqlength = 0;
-
-#ifndef PRINTRESULTSONLY  
-  printf("Reading Input File...\n");
-#endif
-  fp = fopen(filename, "r");
-
-  if( fp == NULL) {  // Make sure input file exits 
-    fprintf(stderr, "Error opening file %s\n", filename);
-    exit(1);  
-  }
-
-  linenumber = 0;
-  while( fgets(line, MAXLINE, fp)!= NULL ) {  // Read lines
-    linenumber++;
-    i = 0;
-
-    while( line[0] != '>' && line[i] != '\n') {
-      line[i] = toupper( line[i] );
-      
-      if( line[i] != 'A' && line[i] != 'T' && line[i] != 'C'
-         && line[i] != 'G' && line[i] != 'U') {
-           if( line[i] != ' ' && line[i] != '\t') {
-             fprintf(stderr, "Invalid base at line %d, position %d\n", linenumber, i+1);
-             fclose( fp);
-             exit(1);
-           }
-         }
-      else {
-        if( line[i] != ' ' && line[i] != '\t' && line[i] != '\n') {
-          tempSeq[ *seqlength] = line[i];
-          // seq[ *seqlength] = line[i];
-          (*seqlength)++;
-        }
-      }
-      i++;
-    }
-  }
-
-  *seq = (char *) calloc( *seqlength + 1, sizeof( char) );
-  if( *seq == NULL) {
-    fprintf(stderr, "ReadSequence: unable to allocate %lu bytes for '*seq'\n",*seqlength+1 * sizeof( char));
-    exit(1);
-  }
-
-  for( i = 0; i < *seqlength; i++) {
-    (*seq)[ i] = tempSeq[ i];
-  }
-  (*seq)[*seqlength] = '\0';
-
-  fclose( fp);
-}
-
 /* **************************** */
 int getSequenceLength( char *seq, int *nStrands /*, seq2, nicks*/) {
   

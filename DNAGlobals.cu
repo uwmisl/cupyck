@@ -8,27 +8,12 @@
 */
 #include "pfuncUtilsHeader.h"
 
-int mfe_sort_method = 0;
-int NUPACK_VALIDATE = 0;
-int NupackShowHelp = 0;
-
 DBL_TYPE SODIUM_CONC;
 DBL_TYPE MAGNESIUM_CONC;
 int USE_LONG_HELIX_FOR_SALT_CORRECTION;
 int DANGLETYPE;
 int DNARNACOUNT;
 int DO_PSEUDOKNOTS;
-int ONLY_ONE_MFE;
-int USE_MFE;
-
-DBL_TYPE *pairPr;
-DBL_TYPE *pairPrPbg;
-DBL_TYPE *pairPrPb;
-
-DBL_TYPE * EXTERN_QB = NULL;
-DBL_TYPE * EXTERN_Q = NULL;
 
 char PARAM_FILE[100]="";
 
-int nupack_sample = 0;
-int nupack_num_samples = 0;

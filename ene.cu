@@ -425,45 +425,9 @@ DBL_TYPE ExplDangleRaw( int i, int j, int seq[], int seqlength, energy_model_t
   return EXP_FUNC( -(dangle3 + dangle5)/(em->temp_k*kB) );
 }
 
-//TODO: disable cache?
 DEV
 DBL_TYPE ExplDangle( int i, int j, int seq[], int seqlength, energy_model_t *em) {
   return ExplDangleRaw(i,j,seq,seqlength, em);
-  /*
-  static DBL_TYPE *EDCache=NULL;
-  static int CacheInd=-1, nCaches=0, dangleTypeCache=2;
-  static DBL_TYPE TCache;
-
-  if (CacheInd==-1 || TCache!=ENERGIES.temp_k
-      || dangleTypeCache!=ENERGIES.dangletype){ // We got a new sequence or temp
-    int d,e;
-    if (CacheInd!=-1 || EDCache)
-      free(EDCache);
-    EDCache=(DBL_TYPE *)malloc((seqlength+1)*(seqlength+1)*sizeof(DBL_TYPE));
-    for (int idx = 0; idx < (seqlength + 1) * (seqlength + 1); ++idx) {
-      EDCache[idx] = 0;
-    }
-    if (!EDCache){
-      printf("ExplDangle: unable to allocate %lu bytes, disabling cache\n",(unsigned long)(seqlength+1)*(seqlength+1)*sizeof(DBL_TYPE));
-      assert(0);
-      return ExplDangleRaw(i,j,seq,seqlength);
-      //exit(0);
-    }
-    CacheInd=nCaches++;
-
-    TCache=ENERGIES.temp_k;
-    dangleTypeCache=ENERGIES.dangletype;
-
-    for (d=0;d<seqlength+1;d++){
-      for (e=-1;e<seqlength;e++){
-        EDCache[d*(seqlength+1)+e+1]=ExplDangleRaw(d,e,seq,seqlength);
-      }
-    }
-  }
-
-
-  return EDCache[(i*(seqlength+1)+(j+1))];
-  */
 }
 
 
@@ -582,54 +546,9 @@ DBL_TYPE ExplInternal( int i, int j, int h, int m, int seq[], energy_model_t *em
   return EXP_FUNC( - energy/( kB*em->temp_k));
 }
 
-//TODO: caches, huh?
 DEV
 DBL_TYPE sizeLog(int size, energy_model_t *em){
   return 1.75*kB*em->temp_k*LOG_FUNC(size/30.0);
-  /*
-  static DBL_TYPE *slCache[MAXSTRANDS], *edc, tc;
-  static int CacheInd=-1, nCaches=0;
-  static DBL_TYPE TCache[MAXSTRANDS];
-
-  if (CacheInd==-1 || tc!=ENERGIES.temp_k){ // We got a new sequence or temp
-    static unsigned int keySize=sizeof(int)+sizeof(DBL_TYPE);
-    char key[sizeof(int*)+sizeof(DBL_TYPE)];
-    static int IndCache[MAXSTRANDS];
-    static void *indP=NULL;
-    static hash *expHash;
-    int d;
-
-    if (CacheInd==-1) { // We need to create a new hash
-      expHash=hash_new((unsigned int) MAXSTRANDS);
-    }
-
-    // Calculate key
-    memcpy((void*)key, (void *)&size,sizeof(int));
-    memcpy((void*)(key+sizeof(int)), (void *)&ENERGIES.temp_k ,sizeof(DBL_TYPE));
-
-    // Search for key
-    indP=hash_get (expHash, key, keySize);
-    if (!indP){
-      CacheInd=nCaches++;
-      IndCache[CacheInd]=CacheInd;
-      hash_add(expHash, key, keySize, (void *)&IndCache[CacheInd]);
-
-      slCache[CacheInd]=(DBL_TYPE *)malloc(MAXSEQLENGTH*sizeof(DBL_TYPE));
-      TCache[CacheInd]=ENERGIES.temp_k;
-
-      slCache[CacheInd][0]=0.0;
-      for (d=1;d<MAXSEQLENGTH;d++){
-          slCache[CacheInd][d]=1.75*kB*ENERGIES.temp_k*LOG_FUNC( d/30.0);
-      }
-      indP=hash_get (expHash, key, keySize);
-    }
-    CacheInd=*(int*)indP;
-    edc=slCache[CacheInd];
-    tc=TCache[CacheInd];
-  }
-
-  return edc[size];
-  */
 }
 
 
