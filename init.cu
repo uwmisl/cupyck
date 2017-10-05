@@ -189,7 +189,7 @@ DBL_TYPE computeSaltCorrection(DBL_TYPE sodiumConc, DBL_TYPE magnesiumConc,
   return -0.114*log(sodiumConc + 3.3*sqrt(magnesiumConc)) * temp_k / 310.15;
 }
 
-
+#define fgets(args...) assert(fgets(args) != 0)
 /* ************************************** */
 void LoadEnergies(energy_model_t *em, DBL_TYPE temp_k) {
   
@@ -1489,6 +1489,7 @@ void LoadEnergies(energy_model_t *em, DBL_TYPE temp_k) {
   em->alpha_1 += em->salt_correction;
 
 }
+#undef fgets
 
 /* ************** */
 
