@@ -307,16 +307,19 @@ int * nStrands_arr;
 int * permSymmetries;
 DBL_TYPE * temps;
 int nblocks;
-
+int nthreads;
 
 
 extern "C" void pfuncInitialize(
     int nblocks_in,
+    int nthreads_in,
+    int max_seqlen,
     DBL_TYPE temp_lo, DBL_TYPE temp_hi, DBL_TYPE temp_step,
     DBL_TYPE sodium_conc, DBL_TYPE magnesium_conc,
     int long_helix, int dangletype, int dnarnacount) {
 
   nblocks = nblocks_in;
+  nthreads = nthreads_in;
   SODIUM_CONC = sodium_conc;
   MAGNESIUM_CONC = magnesium_conc;
   USE_LONG_HELIX_FOR_SALT_CORRECTION = long_helix;
@@ -375,7 +378,7 @@ extern "C" void pfuncInitialize(
 
   // perform allocations
   PFMemory *pfm_host = new PFMemory[nblocks];
-  for(int i = 0; i < nblocks; ++i) { pfm_host[i].init(100); }
+  for(int i = 0; i < nblocks; ++i) { pfm_host[i].init(max_seqlen); }
   PFMemory *pfm_dev;
   cudaMalloc(&pfm_dev, nblocks * sizeof(PFMemory));
   cudaMemcpy(pfm_dev, pfm_host, nblocks * sizeof(PFMemory), cudaMemcpyHostToDevice);
@@ -397,7 +400,7 @@ extern "C" void pfuncMulti(char ** inputSeqs, int nseqs, int * permSym,
       temps[i] = temp_Cs[s + i] + ZERO_C_IN_KELVIN;
     }
 
-    pfuncFullWithSymHelper<<<njobs, 64>>>(
+    pfuncFullWithSymHelper<<<njobs, nthreads>>>(
         pf, intSeqs, seqlengths, nStrands_arr, permSymmetries, temps
     );
     cudaDeviceSynchronize();

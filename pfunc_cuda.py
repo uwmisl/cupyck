@@ -13,6 +13,8 @@ class Session:
     def __init__(
             self,
             nblocks,
+            nthreads,
+            max_seqlen,
             t_lo, t_hi, t_step,
             na=1.0, mg=0.0,
             long_helix=0,
@@ -39,6 +41,8 @@ class Session:
 
         self.lib.pfuncInitialize(
                 ctypes.c_int(nblocks),
+                ctypes.c_int(nthreads),
+                ctypes.c_int(max_seqlen),
                 ctypes.c_double(t_lo),
                 ctypes.c_double(t_hi),
                 ctypes.c_double(t_step),
