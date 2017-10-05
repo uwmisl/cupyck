@@ -123,7 +123,7 @@ lib = None
 fp_type = c_double
 def init():
     global lib
-    lib = cdll.LoadLibrary("./pfunc-cuda.so")
+    lib = cdll.LoadLibrary("../lib/pfunc-cuda.so")
 
     lib.pfuncInitialize(
                 c_int(16384),
