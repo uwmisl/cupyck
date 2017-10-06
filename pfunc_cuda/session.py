@@ -1,7 +1,6 @@
 import ctypes
 import os
 import math
-import numpy as np
 
 DNA = 0
 RNA = 1
@@ -80,8 +79,5 @@ class Session(object):
             -kB * (273.15 + temp) * math.log(max(pf, 1))
             for pf, temp in zip(pfs, temps)
         ]
-
-        pfs = np.array(pfs)
-        energies = np.array(energies)
 
         return { "pfs" : pfs, "energies" : energies }
