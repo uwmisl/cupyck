@@ -6,7 +6,7 @@ import numpy as np
 DNA = 0
 RNA = 1
 
-class Session:
+class Session(object):
 
     lib = None
 
@@ -31,8 +31,8 @@ class Session:
         if na < 0 or mg < 0:
             raise ValueError("salt concentrations must be positive")
 
-        module_dir = os.path.dirname(__file__)
-        lib_dir = os.path.join(module_dir, "lib")
+        package_dir = os.path.dirname(__file__)
+        lib_dir = os.path.join(package_dir, "../lib")
         os.environ["NUPACKHOME"] = lib_dir
 
         self.lib = ctypes.cdll.LoadLibrary(
@@ -84,4 +84,4 @@ class Session:
         pfs = np.array(pfs)
         energies = np.array(energies)
 
-        return pfs, energies
+        return { "pfs" : pfs, "energies" : energies }
