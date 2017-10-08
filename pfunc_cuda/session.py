@@ -14,7 +14,7 @@ class Session(object):
             nblocks,
             nthreads,
             max_seqlen,
-            t_lo, t_hi, t_step,
+            t_lo=0, t_hi=100, t_step=0.05,
             na=1.0, mg=0.0,
             long_helix=0,
             dangle_type=1,

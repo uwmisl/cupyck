@@ -104,9 +104,28 @@ def melting_temps(session, templates, primers, t_conc, p_conc, t_lo, t_hi):
 
 class MtServer(Server):
 
+    def __init__(self, t_conc, p_conc, t_lo, t_hi, **kwargs):
+
+        kwargs['t_lo'] = t_lo
+        kwargs['t_hi'] = t_hi
+
+        super(MtServer, self).__init__(**kwargs)
+
+        self.t_conc = t_conc
+        self.p_conc = p_conc
+
+        self.t_lo = t_lo
+        self.t_hi = t_hi
+
     def worker(self, *args):
         templates, primers = args
-        return melting_temps(self, templates, primers, 1e-8, 1e-6, 0, 100)
+        return melting_temps(
+            self,
+            templates,
+            primers,
+            self.t_conc, self.p_conc,
+            self.t_lo, self.t_hi
+        )
 
 
 if __name__ == "__main__":
@@ -115,7 +134,17 @@ if __name__ == "__main__":
 
     if sys.argv[1] == 'server':
         print "initializing..."
-        server = MtServer(2046, 16384, 64, 100, 0, 100, 0.05)
+        server = MtServer(
+            t_conc = 1e-8,
+            p_conc = 1e-6,
+            t_lo = 0,
+            t_hi = 100,
+            t_step = 0.05,
+            port = 2046,
+            nblocks = 16384,
+            nthreads = 64,
+            max_seqlen = 100
+        )
         print "listening."
         server.listen()
 

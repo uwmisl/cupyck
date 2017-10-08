@@ -6,13 +6,13 @@ import itertools
 
 class Server(Session):
 
-    def __init__(self, port, *args, **kwargs):
+    def __init__(self, port, **kwargs):
 
         ctxt = zmq.Context()
         self.sock = ctxt.socket(zmq.REP)
         self.sock.bind("tcp://*:%d" % port)
 
-        super(Server, self).__init__(*args, **kwargs)
+        super(Server, self).__init__(**kwargs)
 
     def worker(self, *args):
         return self.pfunc(*args)['energies']
