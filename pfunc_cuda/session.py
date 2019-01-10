@@ -3,6 +3,8 @@ import os
 import math
 import subprocess
 import xml.etree.ElementTree as et
+import numpy as np
+import nupyck.apps.concentrations as concs
 
 DNA = 0
 RNA = 1
@@ -100,23 +102,37 @@ class Session(object):
                 )
 
 
-    def pfunc(self, seqs, temps, symmetries):
+    def pfunc(self, jobs):
         kB = 0.0019872041
-        nseqs = len(seqs)
+        njobs = len(jobs)
 
-        seqs = (ctypes.c_char_p * nseqs)(
+        seqs = [
+            "+".join(
+                job['sequences'][p-1] for p in job['permutation']
+            )
+            for job in jobs
+        ]
+
+        seqs = (ctypes.c_char_p * njobs)(
             *[ ctypes.c_char_p(seq) for seq in seqs ]
         )
 
-        temps = (ctypes.c_double * nseqs)(*temps)
+        temps = (ctypes.c_double * njobs)(*jobs['temperature'])
 
-        symmetries = (ctypes.c_int * nseqs)(*symmetries)
+        symmetries = (ctypes.c_int * njobs)(
+            *[ concs.core.calcVPi(
+                   (ctypes.c_int * len(perm))(*perm),
+                   ctypes.c_int(len(perm))
+               )
+               for perm in jobs['permutation']
+             ]
+        )
 
-        pfs = (ctypes.c_double * nseqs)()
+        pfs = (ctypes.c_double * njobs)()
 
         self.lib.pfuncMulti(
             seqs,
-            ctypes.c_int(nseqs),
+            ctypes.c_int(njobs),
             symmetries,
             temps,
             ctypes.byref(pfs)
@@ -127,4 +143,9 @@ class Session(object):
             for pf, temp in zip(pfs, temps)
         ]
 
-        return { "pfs" : pfs, "energies" : energies }
+        results = np.array(
+            zip(energies, pfs),
+            dtype = [('energy', 'float64'), ('pf', 'float64')]
+        )
+
+        return results
