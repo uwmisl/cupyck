@@ -3,7 +3,7 @@ import os
 import math
 import subprocess
 import xml.etree.ElementTree as et
-import numpy as np
+import pandas as pd
 import nupyck.apps.concentrations as concs
 
 DNA = 0
@@ -108,23 +108,23 @@ class Session(object):
 
         seqs = [
             "+".join(
-                job['sequences'][p-1] for p in job['permutation']
+                job.sequences[p-1] for p in job.permutation
             )
-            for job in jobs
+            for job in jobs.itertuples()
         ]
 
         seqs = (ctypes.c_char_p * njobs)(
             *[ ctypes.c_char_p(seq) for seq in seqs ]
         )
 
-        temps = (ctypes.c_double * njobs)(*jobs['temperature'])
+        temps = (ctypes.c_double * njobs)(*jobs.temperature)
 
         symmetries = (ctypes.c_int * njobs)(
             *[ concs.core.calcVPi(
                    (ctypes.c_int * len(perm))(*perm),
                    ctypes.c_int(len(perm))
                )
-               for perm in jobs['permutation']
+               for perm in jobs.permutation
              ]
         )
 
@@ -143,9 +143,10 @@ class Session(object):
             for pf, temp in zip(pfs, temps)
         ]
 
-        results = np.array(
+        results = pd.DataFrame(
             zip(energies, pfs),
-            dtype = [('energy', 'float64'), ('pf', 'float64')]
+            columns = ['energy', 'partition_function'],
+            index = jobs.index
         )
 
-        return results
+        return pd.concat([jobs, results], axis=1)
