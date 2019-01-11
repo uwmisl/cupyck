@@ -1,31 +1,45 @@
 from .session import Session
 import zmq
 import pickle
-import itertools
+import abc
+import sys
+import time
+import pandas as pd
 
 
 class Server(Session):
+    __metaclass__ = abc.ABCMeta
 
-    def __init__(self, port, **kwargs):
+    def __init__(self, port, sessOptions):
 
         ctxt = zmq.Context()
         self.sock = ctxt.socket(zmq.REP)
         self.sock.bind("tcp://*:%d" % port)
 
-        super(Server, self).__init__(**kwargs)
+        super(Server, self).__init__(sessOptions)
 
-    def worker(self, *args):
-        return self.pfunc(*args)['energies']
+    @abc.abstractmethod
+    def worker(self, jobs):
+        pass
 
-    def listen(self):
+    def listen(self, verbose = False):
+        if verbose:
+            print "listening..."
 
         while True:
 
             request = self.sock.recv()
-            items = pickle.loads(request)
-            args = zip(*items)
+            jobs = pickle.loads(request)
 
-            result = self.worker(*args)
+            if verbose:
+                sys.stdout.write("processing %d jobs..." % len(jobs))
+                start = time.time()
+
+            result = self.worker(jobs)
+
+            if verbose:
+                end = time.time()
+                sys.stdout.write("done in %f seconds.\n" % (end - start))
 
             reply = pickle.dumps(result)
             self.sock.send(reply)
@@ -35,10 +49,10 @@ class Client:
 
     socks = []
 
-    def __init__(self, server_list, port):
+    def __init__(self, server_list):
 
         ctxt = zmq.Context()
-        for server in server_list:
+        for server, port in server_list:
             sock = ctxt.socket(zmq.REQ)
             sock.connect("tcp://%s:%d" % (server, port))
             self.socks.append(sock)
@@ -62,7 +76,7 @@ class Client:
             result = pickle.loads(reply)
             results.append(result)
 
-        results = list(itertools.chain(*results))
+        results = pd.concat(results)
 
         return results
 
