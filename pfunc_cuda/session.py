@@ -2,6 +2,7 @@ import ctypes
 import os
 import math
 import subprocess
+import itertools
 import xml.etree.ElementTree as et
 import pandas as pd
 import nupyck.apps.concentrations as concs
@@ -150,3 +151,44 @@ class Session(object):
         )
 
         return pd.concat([jobs, results], axis=1)
+
+    def concentrations(self, jobs):
+
+        jobs_with_ids = jobs.join(pd.Series(range(len(jobs)), name="job_id"))
+
+        perms = []
+        for job_id, job in jobs.iterrows():
+            for n in range(1, job.max_complex_size + 1):
+                job_perms = itertools.combinations_with_replacement(
+                    range(1, len(job.sequences) + 1), n
+                )
+                for perm in job_perms:
+                    perms.append((job_id, perm))
+
+        perms = pd.DataFrame(perms, columns=["job_id", "permutation"])
+
+        pf_jobs = pd.merge(jobs_with_ids, perms, on="job_id")
+
+        pf_results = self.pfunc(pf_jobs)
+
+        conc_results = []
+        for job_id in range(len(jobs)):
+
+            pf_result = pf_results[pf_results.job_id == job_id]
+            perms = pf_result.permutation
+
+            x0   = jobs.loc[job_id].x0
+            G    = pf_result.energy
+            A    = concs._convert_perms_to_A(perms)
+            temp = jobs.loc[job_id].temperature
+
+            x = concs.calc_conc(x0, G, A, temp)
+
+            conc_results.append({
+                "concentrations": dict(zip(perms, x)),
+                "energies": dict(zip(perms, G))
+            })
+
+        results = jobs.join(pd.DataFrame(conc_results))
+
+        return results
