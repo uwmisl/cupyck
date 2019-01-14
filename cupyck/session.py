@@ -85,7 +85,7 @@ class Session(object):
         os.environ["NUPACKHOME"] = lib_dir
 
         self.lib = ctypes.cdll.LoadLibrary(
-            os.path.join(lib_dir, "pfunc-cuda.so")
+            os.path.join(lib_dir, "cupyck.so")
         )
 
         self.lib.pfuncInitialize(

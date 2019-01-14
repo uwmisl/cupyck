@@ -1,4 +1,4 @@
 .*.swp
 *.o
-pfunc-cuda.so
+cupyck.so
 *.pyc
