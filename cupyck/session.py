@@ -81,11 +81,10 @@ class Session(object):
     def __init__(self, options):
 
         package_dir = os.path.dirname(__file__)
-        lib_dir = os.path.join(package_dir, "../lib")
-        os.environ["NUPACKHOME"] = lib_dir
+        os.environ["NUPACKHOME"] = package_dir
 
         self.lib = ctypes.cdll.LoadLibrary(
-            os.path.join(lib_dir, "cupyck.so")
+            os.path.join(package_dir, "cupyck.so")
         )
 
         self.lib.pfuncInitialize(
