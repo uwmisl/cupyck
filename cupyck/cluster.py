@@ -1,4 +1,3 @@
-from .session import Session
 import zmq
 import pickle
 import abc
@@ -7,16 +6,16 @@ import time
 import pandas as pd
 
 
-class Server(Session):
+class Server(object):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, port, sessOptions):
+    def __init__(self, port, session):
 
         ctxt = zmq.Context()
         self.sock = ctxt.socket(zmq.REP)
         self.sock.bind("tcp://*:%d" % port)
 
-        super(Server, self).__init__(sessOptions)
+        self.session = session
 
     @abc.abstractmethod
     def worker(self, jobs):
@@ -45,7 +44,7 @@ class Server(Session):
             self.sock.send(reply)
 
 
-class Client:
+class Client(object):
 
     socks = []
 
