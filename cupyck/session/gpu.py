@@ -13,6 +13,13 @@ class GPUSession(Session):
     lib = None
 
     def __init__(self, max_seqlen, **kwargs):
+        try:
+            subprocess.check_call("nvidia-smi")
+        except:
+            raise RuntimeError(
+                "No GPU is available."
+            )
+
 
         options = {
             "max_seqlen" : max_seqlen,
