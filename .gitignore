@@ -4,3 +4,4 @@ cupyck.so
 *.pyc
 *.egg-info
 cupyck/parameters
+.ipynb_checkpoints
