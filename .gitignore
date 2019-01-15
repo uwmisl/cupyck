@@ -2,3 +2,5 @@
 *.o
 cupyck.so
 *.pyc
+*.egg-info
+cupyck/parameters
