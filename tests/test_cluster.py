@@ -10,10 +10,11 @@ randseq = lambda n: "".join(np.random.choice(list("ATCG"), n))
 class PFServer(cupyck.Server):
 
     def worker(self, jobs):
-        return self.pfunc(jobs)
+        return self.session.pfunc(jobs)
 
 def server():
-    server = PFServer(2046, cupyck.Options(40, nblocks=100))
+    session = cupyck.GPUSession(max_seqlen = 40, nblocks = 100)
+    server = PFServer(port = 2046, session = session)
     server.listen(verbose = True)
 
 p = multiprocessing.Process(target = server)

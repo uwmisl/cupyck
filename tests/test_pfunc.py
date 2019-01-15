@@ -14,10 +14,8 @@ jobs = pd.DataFrame([
     for _ in range(1000)
 ])
 
-opts = cupyck.Options(max_seqlen = 50)
-
 print "initializing..."
-sess = cupyck.Session(opts)
+sess = cupyck.GPUSession(max_seqlen = 50)
 print "done"
 
 print "running pfunc test..."
