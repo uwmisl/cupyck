@@ -14,7 +14,7 @@ class GPUSession(Session):
 
     def __init__(self, max_seqlen, **kwargs):
         try:
-            subprocess.check_call("nvidia-smi")
+            subprocess.check_output("nvidia-smi")
         except:
             raise RuntimeError(
                 "No GPU is available."
