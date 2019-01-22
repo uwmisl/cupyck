@@ -70,7 +70,12 @@ class PFMemory {
     DBL_TYPE *Qx_1;
     DBL_TYPE *Qx_2;
 
+    int *seq;
+    int **etaN;
+    int *etaN_space;
+
     int arraySize;
+    int seqlength;
 
     PFMemory() {}
     ~PFMemory() {}
@@ -78,6 +83,7 @@ class PFMemory {
     __device__ void clear();
 };
 void PFMemory::init(int seqlength) {
+  this->seqlength = seqlength;
   arraySize = seqlength*(seqlength+1)/2+(seqlength+1);
 
   cudaCheck(cudaMalloc(&Q, arraySize * sizeof(DBL_TYPE)));
@@ -90,6 +96,12 @@ void PFMemory::init(int seqlength) {
   cudaCheck(cudaMalloc(&Qx, arraySize/2 * sizeof(DBL_TYPE)));
   cudaCheck(cudaMalloc(&Qx_1, arraySize/2 * sizeof(DBL_TYPE)));
   cudaCheck(cudaMalloc(&Qx_2, arraySize/2 * sizeof(DBL_TYPE)));
+
+  cudaCheck(cudaMalloc(&seq, (seqlength + 1) * sizeof(int)));
+  cudaCheck(cudaMalloc(&etaN, arraySize * sizeof(int*)));
+  cudaCheck(cudaMalloc(&etaN_space, arraySize * 2 * sizeof(int)));
+
+}
 }
 
 __device__ void PFMemory::clear() {
@@ -103,6 +115,10 @@ __device__ void PFMemory::clear() {
   memset(Qx, 0, arraySize/2 * sizeof(DBL_TYPE));
   memset(Qx_1, 0, arraySize/2 * sizeof(DBL_TYPE));
   memset(Qx_2, 0, arraySize/2 * sizeof(DBL_TYPE));
+
+  memset(seq, 0, (seqlength + 1) * sizeof(int));
+  memset(etaN, 0, arraySize * sizeof(int*));
+  memset(etaN_space, 0, arraySize * 2 * sizeof(int));
 }
 
 __constant__ PFMemory *pf_mem;
@@ -122,9 +138,6 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
   //dangles: 0 = none, 1 = normal, 2 = add both
 
   __shared__ int *seq;
-  if(threadIdx.x == 0) {
-    seq = (int*)malloc((seqlength + 1) * sizeof(int));
-  }
 
   __shared__ DBL_TYPE *Q;
   __shared__ DBL_TYPE *Qb;
@@ -181,30 +194,21 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
     Qx_2 = mem->Qx_2;
     Qs   = mem->Qs;
     Qms  = mem->Qms;
+    seq  = mem->seq;
+    etaN = mem->etaN;
+    etaN_space = mem->etaN_space;
 
     processMultiSequence( inputSeq, seqlength, nStrands, seq, nicks);
 
     // Allocate and Initialize Matrices
     int arraySize = seqlength*(seqlength+1)/2+(seqlength+1);
 
-    //InitLDoublesMatrix( &Q, arraySize, "Q");
-    //InitLDoublesMatrix( &Qb, arraySize, "Qb");
-    //InitLDoublesMatrix( &Qm, arraySize, "Qm");
-
-    etaN = (int**)malloc(arraySize * sizeof(int*));
-    etaN_space = (int*)malloc(arraySize * 2 * sizeof(int));
     for (int i = 0; i < arraySize; ++i) {
       etaN[i] = etaN_space + (2 * i);
     }
     InitEtaN( etaN, nicks, seqlength);
     nonZeroInit( Q, seq, seqlength, em);
 
-    //InitLDoublesMatrix( &Qs, arraySize, "Qs");
-    //InitLDoublesMatrix( &Qms, arraySize, "Qms");
-
-    //InitLDoublesMatrix( &Qx, arraySize/2, "Qx");
-    //InitLDoublesMatrix( &Qx_1, arraySize/2, "Qx_1");
-    //InitLDoublesMatrix( &Qx_2, arraySize/2, "Qx_2");
   }
 
   for( L = 1; L <= seqlength; L++) {
@@ -276,25 +280,7 @@ void pfuncFullWithSymHelper(DBL_TYPE *pf, int ** inputSeqs, int * seqlengths,
         (kB*em->temp_k)
       ) * Q[ pf_index(0,seqlength-1, seqlength)]/((DBL_TYPE) permSymmetry);
 
-    //free( Q);
-    //free( Qb);
-    //free( Qm);
 
-    //Q = Qb = Qm = NULL;
-
-    //free( Qs);
-    //free( Qms);
-    //
-    //free( Qx);
-    //free( Qx_1);
-    //free( Qx_2);
-    //
-    //Qs = Qms = Qx = Qx_1 = Qx_2 = NULL;
-
-    free( seq);
-
-    free( etaN);
-    free( etaN_space);
     pf[blockIdx.x] = returnValue;
   }
 }
