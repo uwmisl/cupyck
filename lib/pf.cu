@@ -350,10 +350,10 @@ extern "C" void pfuncInitialize(
   cudaMemcpy(em_dev, em_host, ntemps * sizeof(energy_model_t), cudaMemcpyHostToDevice);
 
   // Set device constants
-  cudaMemcpyToSymbol(energies, &em_dev, sizeof(energy_model_t*));
-  cudaMemcpyToSymbol(t_hi, &temp_hi, sizeof(DBL_TYPE));
-  cudaMemcpyToSymbol(t_lo, &temp_lo, sizeof(DBL_TYPE));
-  cudaMemcpyToSymbol(t_step, &temp_step, sizeof(DBL_TYPE));
+  cudaCheck(cudaMemcpyToSymbol(energies, &em_dev, sizeof(energy_model_t*)));
+  cudaCheck(cudaMemcpyToSymbol(t_hi, &temp_hi, sizeof(DBL_TYPE)));
+  cudaCheck(cudaMemcpyToSymbol(t_lo, &temp_lo, sizeof(DBL_TYPE)));
+  cudaCheck(cudaMemcpyToSymbol(t_step, &temp_step, sizeof(DBL_TYPE)));
 
   cudaCheck(
     cudaMallocManaged(&pf, nblocks * sizeof(DBL_TYPE))

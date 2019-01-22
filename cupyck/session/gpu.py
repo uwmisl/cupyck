@@ -47,7 +47,7 @@ class GPUSession(Session):
             mem_needed = (
                 (max_seqlen ** 2) / 2 * # entries in each pf array
                 8                     * # bytes per entry
-                10                      # number of arrays
+                11                      # number of arrays
             )
 
             options['nblocks'] = min(mem_free / mem_needed, 65536)
