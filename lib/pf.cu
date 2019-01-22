@@ -80,6 +80,7 @@ class PFMemory {
     PFMemory() {}
     ~PFMemory() {}
     void init(int);
+    void free();
     __device__ void clear();
 };
 void PFMemory::init(int seqlength) {
@@ -102,6 +103,21 @@ void PFMemory::init(int seqlength) {
   cudaCheck(cudaMalloc(&etaN_space, arraySize * 2 * sizeof(int)));
 
 }
+void PFMemory::free() {
+  cudaCheck(cudaFree(Q));
+  cudaCheck(cudaFree(Qb));
+  cudaCheck(cudaFree(Qm));
+
+  cudaCheck(cudaFree(Qs));
+  cudaCheck(cudaFree(Qms));
+
+  cudaCheck(cudaFree(Qx));
+  cudaCheck(cudaFree(Qx_1));
+  cudaCheck(cudaFree(Qx_2));
+
+  cudaCheck(cudaFree(seq));
+  cudaCheck(cudaFree(etaN));
+  cudaCheck(cudaFree(etaN_space));
 }
 
 __device__ void PFMemory::clear() {
@@ -295,6 +311,11 @@ DBL_TYPE * temps;
 int nblocks;
 int nthreads;
 
+energy_model_t *em_host;
+energy_model_t *em_dev;
+
+PFMemory *pfm_host;
+PFMemory *pfm_dev;
 
 extern "C" void pfuncInitialize(
     int nblocks_in,
@@ -316,20 +337,20 @@ extern "C" void pfuncInitialize(
   int ntemps = ceil((temp_hi - temp_lo) / temp_step) + 1;
   temp_lo += ZERO_C_IN_KELVIN;
   temp_hi += ZERO_C_IN_KELVIN;
-  energy_model_t *em;
-  em = (energy_model_t*)malloc(ntemps * sizeof(energy_model_t));
+
+  em_host = (energy_model_t*)malloc(ntemps * sizeof(energy_model_t));
+
   DBL_TYPE temp_k = temp_lo;
   for(int i = 0; i < ntemps; ++i) {
-    LoadEnergies(em + i, temp_k);
+    LoadEnergies(em_host + i, temp_k);
     temp_k += temp_step;
   }
   // Allocate device memory and copy
-  energy_model_t *em_d;
-  cudaMalloc(&em_d, ntemps * sizeof(energy_model_t));
-  cudaMemcpy(em_d, em, ntemps * sizeof(energy_model_t), cudaMemcpyHostToDevice);
+  cudaMalloc(&em_dev, ntemps * sizeof(energy_model_t));
+  cudaMemcpy(em_dev, em_host, ntemps * sizeof(energy_model_t), cudaMemcpyHostToDevice);
 
   // Set device constants
-  cudaMemcpyToSymbol(energies, &em_d, sizeof(energy_model_t*));
+  cudaMemcpyToSymbol(energies, &em_dev, sizeof(energy_model_t*));
   cudaMemcpyToSymbol(t_hi, &temp_hi, sizeof(DBL_TYPE));
   cudaMemcpyToSymbol(t_lo, &temp_lo, sizeof(DBL_TYPE));
   cudaMemcpyToSymbol(t_step, &temp_step, sizeof(DBL_TYPE));
@@ -358,19 +379,44 @@ extern "C" void pfuncInitialize(
       cudaMallocManaged(&(intSeqs[i]), (MAXSEQLENGTH + 1) * sizeof(int))
     );
   }
-  cudaCheck(
-    cudaDeviceSetLimit(cudaLimitMallocHeapSize, 1 << 30)
-  );
 
   // perform allocations
-  PFMemory *pfm_host = new PFMemory[nblocks];
+  pfm_host = new PFMemory[nblocks];
   for(int i = 0; i < nblocks; ++i) { pfm_host[i].init(max_seqlen); }
-  PFMemory *pfm_dev;
+
   cudaMalloc(&pfm_dev, nblocks * sizeof(PFMemory));
   cudaMemcpy(pfm_dev, pfm_host, nblocks * sizeof(PFMemory), cudaMemcpyHostToDevice);
 
   // copy symbol
   cudaMemcpyToSymbol(pf_mem, &pfm_dev, sizeof(PFMemory*));
+}
+
+extern "C" void pfuncShutdown() {
+  // free device memory for energy models
+  cudaCheck(cudaFree(em_dev));
+  // free host memory for energy models
+  free(em_host);
+
+  // free unified memory for parameters
+  cudaCheck(cudaFree(pf));
+  cudaCheck(cudaFree(seqlengths));
+  cudaCheck(cudaFree(nStrands_arr));
+  cudaCheck(cudaFree(permSymmetries));
+  cudaCheck(cudaFree(temps));
+  for (int i = 0; i < nblocks; ++i) {
+    cudaCheck(cudaFree(intSeqs[i]));
+  }
+  cudaCheck(cudaFree(intSeqs));
+
+  // free device memory for PF arrays
+  for(int i = 0; i < nblocks; ++i) {
+    pfm_host[i].free();
+  }
+  // free device memory for PF array pointers
+  cudaCheck(cudaFree(pfm_dev));
+  // free host memory for PF array pointers
+  delete [] pfm_host;
+
 }
 
 extern "C" void pfuncMulti(char ** inputSeqs, int nseqs, int * permSym,

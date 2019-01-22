@@ -78,7 +78,7 @@ class GPUSession(Session):
                 )
 
     def shutdown(self):
-        pass
+        self.lib.pfuncShutdown()
 
     def pfunc(self, jobs):
         kB = 0.0019872041

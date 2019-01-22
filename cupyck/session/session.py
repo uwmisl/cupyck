@@ -36,7 +36,11 @@ class Session(object):
 
         self.options = options
 
+    def __enter__(self):
+        return self
 
+    def __exit__(self, *exception):
+        self.shutdown()
 
     @abc.abstractmethod
     def shutdown(self):
