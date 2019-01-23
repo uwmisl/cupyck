@@ -46,9 +46,8 @@ class Server(object):
 
 class Client(object):
 
-    socks = []
-
     def __init__(self, server_list):
+        self.socks = []
 
         ctxt = zmq.Context()
         for server, port in server_list:
@@ -79,3 +78,6 @@ class Client(object):
 
         return results
 
+    def close(self):
+        for sock in self.socks:
+            sock.close()
