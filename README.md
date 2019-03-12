@@ -132,6 +132,31 @@ is the number of CPU cores to use for parallel execution. By default, it is
 set to the number of cores the system has.
 
 #### `pfunc`
+Once you have created a session, you can call its `pfunc` method on a list of jobs
+defined as a [pandas](https://pandas.pydata.org/) data frame. The data frame
+must contain the following columns (which mirror the inputs to 
+[`nupyck.pfunc`](https://github.com/uwmisl/nupyck#pfunc)):
+
+| Column        | Description                        |
+| ------------- | ---------------------------------- |
+| `sequences`   | the list of sequences for each job |
+| `permutation` | the ordered complex for each job   |
+| `temperature` | the temperature for each job       |
+
+The return value is the input data frame augmented with two additional columns:
+
+| Column               | Description                                  |
+| -------------------  | -------------------------------------------- |
+| `partition_function` | the computed partition function for each job |
+| `energy`             | the computed free energy for each job        |
+
+The input data frame may contain additional columns. These will not be used or modified
+(unless their name conflicts with one of the output columns), and they will be returned
+with the output.
+
+**Note**: Due to numerical issues,
+`cupyck`'s GPU-accelerated partition function will produce slightly
+different values than NUPACK's `pfunc` executable.
 
 #### `concentrations`
 
