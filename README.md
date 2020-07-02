@@ -3,10 +3,16 @@ cupyck
 `cupyck` is a python frontend to [NUPACK](nupack.org) that emphasizes data-parallel
 execution (running many *independent* NUPACK jobs in parallel). At the core of `cupyck` is
 a CUDA-accelerated implementation of NUPACK's partition function, which provides a significant
-speedup over the CPU implementation, especially for batch execution.
+speedup over the CPU implementation, especially for batch execution. There is
+also basic support for remote execution (such as on a cluster of GPU machines).
 
-In addition to frontends for the `pfunc` and `concentrations` applications, `cupyck`'s interface
-includes basic support for running jobs on a cluster of remote machines (such as AWS instances).
+`cupyck` has limitations. At the moment, there are only frontends for the
+`pfunc` and `concentrations` applications from NUPACK (no `pairs`, `mfe`, etc.),
+and computation of RNA pseudoknots is not supported.
+
+Due to issues with floating-point data types, you may find that `cupyck`
+produces slightly different numerical results than NUPACK. If this is an issue
+for your use case, we recommend that you NUPACK instead.
 
 Table of Contents:
 1. [Installation](#installation)
@@ -153,10 +159,6 @@ The return value is the input data frame augmented with two additional columns:
 The input data frame may contain additional columns. These will not be used or modified
 (unless their name conflicts with one of the output columns), and they will be returned
 with the output.
-
-**Note**: Due to numerical issues,
-`cupyck`'s GPU-accelerated partition function will produce slightly
-different values than NUPACK's `pfunc` executable.
 
 #### `concentrations`
 
