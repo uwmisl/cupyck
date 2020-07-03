@@ -59,9 +59,8 @@ class Session(object):
         perms = []
         for job in jobs_with_ids.itertuples():
             for n in range(1, job.max_complex_size + 1):
-                job_perms = itertools.combinations_with_replacement(
-                    range(1, len(job.sequences) + 1), n
-                )
+                job_perms = concs.makePermutations(n, len(job.sequences))
+
                 for perm in job_perms:
                     perms.append((job.job_id, perm))
 
