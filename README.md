@@ -21,8 +21,7 @@ Table of Contents:
     2. [`pfunc`](#pfunc)
     3. [`concentrations`](#concentrations)
 3. [Advanced Usage](#advanced-usage)
-    1. [Writing Applications](#writing-applications)
-    2. [Remote Execution](#remote-execution)
+    1. [Remote Execution](#remote-execution)
 
 ### Installation
 Install with `pip install -r requirements.txt .`. This will download the required dependencies, and
@@ -180,6 +179,86 @@ The return value is the input data frame augmented with two additional columns:
 
 ### Advanced Usage
 
-#### Writing Applications
-
 #### Remote Execution
+`cupyck` provides two classes, `Server` and `Client`, that can be used to implement basic remote execution.
+
+##### Defining a server
+To create a server, define a class derived from `cupyck.Server` and implement its `worker` method,
+using `self.session` to call `pfunc` or `concentrations`. The worker will be applied to any jobs sent in by the client.
+
+For example, the following server takes pairs of strands and computes the yields of their hybridization reactions:
+
+```python
+import cupyck
+import pandas as pd
+
+class YieldServer(cupyck.Server):
+
+    def worker(self, jobs):
+        results = self.session.concentrations(jobs)
+        yields = results.apply(
+            lambda result:
+                result.concentrations[1,2] / min(result.x0),
+            axis = 1
+        )
+        yields.name = "hyb_yield"
+        return jobs.join(yields)
+    
+```
+
+##### Running a server
+To start a server, create it using the TCP port you wish to have it listen on, and the `cupyck.Session` object you wish it to use.
+Then call its `listen` method, and it will begin waiting for jobs.
+
+While you could run a server in a python shell, it's best to define it as a command-line application for ease of distribution among servers in your cluster.
+For example, continuing the code from above:
+
+```python
+import argparse
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("max_seqlen", type=int)
+    parser.add_argument("port", type=int)
+    parser.add_argument("--nblocks", type=int)
+    parser.add_argument("--nthreads", type=int)
+    args = parser.parse_args()
+
+    sess_args = dict(
+        max_seqlen = args.max_seqlen,
+        nblocks = args.nblocks
+    )
+
+    if args.nthreads:
+        sess_args['nthreads'] = args.nthreads
+
+    try:
+        session = cupyck.GPUSession(**sess_args)
+    except RuntimeError:
+        print "GPU startup failed. falling back to multicore backend."
+        session = cupyck.MulticoreSession()
+
+    server = YieldServer(args.port, session)
+    server.listen(verbose=True)
+    
+```
+The following command would start a server on TCP port 3000 that processed duplexes up to 100 nucleotides:
+
+```bash
+$ python yield_server.py 100 3000
+```
+
+##### Running a client
+A client will automatically split up jobs among many servers.
+For example, if you started a server on your local machine on port 3000,
+and on a remote machine (accessible at `some-server.some-school.edu`, for instance) on port 4000,
+The following code would send half of the jobs to each server:
+
+```python
+import cupyck
+
+# some code to create the jobs
+
+calc_yield = cupyck.Client([('localhost', 3000),('some-server.some-school.edu', 4000)])
+results = calc_yield(jobs)
+```
