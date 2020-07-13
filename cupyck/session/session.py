@@ -2,6 +2,7 @@ import abc
 import itertools
 import nupyck.apps.concentrations as concs
 import pandas as pd
+import numpy as np
 
 
 DNA = 0
@@ -77,7 +78,7 @@ class Session(object):
             pf_result = pf_results[pf_results.job_id == job_id]
             perms = pf_result.permutation
 
-            x0   = job.x0
+            x0   = np.array(job.x0)
             G    = pf_result.energy
             A    = concs._convert_perms_to_A(perms)
             temp = job.temperature
