@@ -161,6 +161,22 @@ The input data frame may contain additional columns. These will not be used or m
 with the output.
 
 #### `concentrations`
+Like `pfunc`, the session's `concentrations` method takes a list of jobs as a pandas data frame,
+whose columns mirror the inputs to [`nupyck.concentrations`](https://github.com/uwmisl/nupyck#concentrations):
+
+| Column             | Description                                                           |
+| ------------------ | --------------------------------------------------------------------- |
+| `sequences`        | the list of sequences for each job                                    |
+| `x0`               | the initial concentrations of each sequence for the corresponding job |
+| `max_complex_size` | controls how many complexes are enumerated for each job               |
+| `temperature`      | the temperature for each job                                          |
+
+The return value is the input data frame augmented with two additional columns:
+
+| Column           | Description                                                                            |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| `energies`       | for each job, a dictionary of free energy values, keyed by complex ID (e.g. `[1,3,2]`) |
+| `concentrations` | for each job, a dictionary of final concentrations, keyed by complex ID                |
 
 ### Advanced Usage
 
