@@ -24,7 +24,7 @@ Table of Contents:
     1. [Remote Execution](#remote-execution)
 
 ### Installation
-Install with `pip install -r requirements.txt .`. This will download the required dependencies, and
+Install with `pip install git+https://github.com/uwmisl/cupyck`. This will download the required dependencies, and
 compile and install the library. If you wish to use `cupyck` on a GPU-enabled server or workstation,
 you must have CUDA and the NVIDIA CUDA compiler (`nvcc`) installed.
 
