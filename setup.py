@@ -24,5 +24,10 @@ setup(
   packages=find_packages(),
   package_data = {'cupyck':['cupyck.so', 'parameters/*']},
   include_package_data = True,
-  cmdclass = {"build_py": build}
+  cmdclass = {"build_py": build},
+  install_requires = [
+      "nupyck@git+https://github.com/uwmisl/nupyck",
+      "pandas==0.23.4",
+      "pyzmq>=17.1.2,<18"
+  ]
 )
