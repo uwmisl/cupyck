@@ -1,6 +1,6 @@
 cupyck
 ======
-`cupyck` is a python frontend to [NUPACK](nupack.org) that emphasizes data-parallel
+`cupyck` is a python frontend to [NUPACK](http://www.nupack.org) that emphasizes data-parallel
 execution (running many *independent* NUPACK jobs in parallel). At the core of `cupyck` is
 a CUDA-accelerated implementation of NUPACK's partition function, which provides a significant
 speedup over the CPU implementation, especially for batch execution. There is
